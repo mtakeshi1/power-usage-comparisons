@@ -9,11 +9,15 @@ repositories {
 }
 
 dependencies {
+    implementation 'io.quarkus:quarkus-hibernate-orm'
     implementation 'io.quarkus:quarkus-smallrye-openapi'
     implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
     implementation 'io.quarkus:quarkus-resteasy-reactive-jackson'
     implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-hibernate-orm-rest-data-panache'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
     testImplementation 'io.quarkus:quarkus-junit5'
+    annotationProcessor("io.quarkus:quarkus-panache-common")
 }
 
 group 'io.github.mtakeshi1'
@@ -35,3 +39,4 @@ compileJava {
 compileTestJava {
     options.encoding = 'UTF-8'
 }
+
