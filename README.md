@@ -1,2 +1,139 @@
 # power-usage-comparisons
+
 Small project to compare power usage of different stacks for a small rest api endpoint
+
+# Motivation
+
+In 2017, a group of researchers from Portugal released a paper comparing commonly used programming languages by their
+electricity usage while running a benchmark called 'The computer language benchmarks game'. The paper is great and I
+encourage everyone (interested in green software) to read it, as it tries to answer many interesting questions, such as:
+
+- faster programs are always the most energy efficient?
+- how does memory usage relate to energy consumption?
+
+But he main question it tried to answer is: what is the most 'green' programming language?
+
+I won't delve into the results (which are very insteresting and cathegorize the programming languages in combination of
+characteristics where they excel at) as the paper is easy to find and more importantly easy to read. However, I do have
+some minor issues with it:
+
+- the workload is not, in my opinion, a good representation of 99% of application written nowadays and they mostly favor
+  native compilation
+- the way it was measured (power usage for a single shot execution) favors 'startup' speed, but most web application
+  nowadays are long lived, so it would make sense to measure power usage after warmup for JIT compiled languages (java,
+  javascript/typescript, jruby)
+- the quality of the softwares used varied greatly, likely giving advantage to more popular languages
+
+Most of the time, current web application or api based application are not going to be limited by CPU, and will most
+likely be waiting for IO.
+Therefore, I'm proposing a different benchmark: a rest based API backed by a PosgreSQL database and serializing data
+using JSON, a very typical stack.
+
+# Implementation Details
+
+The api has only a few endpoints that should be mostly straightforward and the open API yaml can be
+found [here](https://github.com/mtakeshi1/power-usage-comparisons/blob/main/openapi.yaml) and the json version can be
+found [here](https://github.com/mtakeshi1/power-usage-comparisons/blob/main/openapi.json)
+
+I will publish them on github pages but very friefly:
+
+```
+/products
+/products/{id}
+/order/new (there's a json payload with the items)
+/order/{id}
+```
+
+An implementation of this API should follow very basic rules:
+
+- no caching
+- stateless
+- it doesn't need to do anything special, but it should compute the total price properly (which means making a number of
+  queries when a new order is posted)
+
+# Database
+
+A database dump can be
+found [here](https://github.com/mtakeshi1/power-usage-comparisons/blob/main/scripts/database.sql). I personally use
+docker and start it as following:
+
+```
+docker run --rm -e POSTGRES_USER=myself -e POSTGRES_PASSWORD=mysafepassword -e POSTGRES_DB=mydatabase -p 5432:5432 -v $PWD/scripts:/docker-entrypoint-initdb.d/ --name pgsql postgres:14.7
+```
+
+from the folder containing the scripts/ directory. Keep in mind to take notice of the user/password/database/port
+combinations you used to configure your application
+
+# Benchmark Method
+
+The power usage will be measured using intel RAPL (same as in the paper) and exported
+using [Scaphandre](https://github.com/hubblo-org/scaphandre) and for each implementation these will be the
+steps:
+
+- start scaphandre on the test server
+- take a baseline power measure for roughly 1 hour (the server will be mostly idle but I imagine it will still draw some
+  power). This will be deducted from the power usage when running the application
+- start a fresh database (not in the same server as the application)
+- run benchmark for an hour
+- stop everything and collect measures (subtracting the power usage from the baseline measure before)
+
+Each 'request' will actually be four http requests:
+
+- GET to /products
+- GET to 5 random products
+- POST to /order/new with the 5 products
+- GET to /order/{id}
+
+I will run three separate workloads:
+
+- cold start: a single thread making 1 request per second for 10 minutes
+- hot application, low load: after warmup, without restarting the application, 10 threads making 1 request per second
+- hot application, medium load: after warmup, without restarting the application, 100 threads making 2 request per
+  second
+
+There are a couple more tests that I want to make, but not sure if I will get to:
+
+- hot application, maximum load: X threads making requests non-stop
+- GraalVM native compilation has been getting a lot of attention lately, but native compilation takes a long time and
+  uses a lot of CPU. I would like to know how many requests it takes for the Hotspot (or graalvm) JIT to be more energy
+  efficient taking the native compilation into account
+
+# Implementations:
+
+## Java + Quarkus
+
+First implementation and the one I used to generate the openapi and database schema (that's the reason the constraints
+have such funky names, as they were generated by hibernate). To start it, from the command line, run
+
+```
+./gradlew quarkusDev
+```
+
+Running on a dev environment like above will create a fresh PostgreSQL database (using test container), create the
+schema and start serving on port 8080. To populate the database:
+
+```
+curl -XPOST http://localhost:8080/products/random
+```
+
+To access the openapi ui, point your browser at [swagger ui here](http://localhost:8080/q/swagger-ui/)
+
+To run in 'production', pack your application ```./gradlew build```, create a .env file with details on the database
+you're using:
+
+```
+quarkus.datasource.username = myself
+quarkus.datasource.password = mysafepassword
+quarkus.datasource.jdbc.url = jdbc:postgresql://localhost:5432/mydatabase
+
+```
+
+and run with ```java -jar ./build/quarkus-app/quarkus-run.jar``` it should start listening on port 8080 (but the swagger
+ui will not be available)
+
+# Conclusion
+
+TBD
+
+# Submit your own version
+
