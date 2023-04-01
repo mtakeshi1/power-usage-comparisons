@@ -3,10 +3,12 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 require('dotenv').config()
 
+const createProductService = require('./api/service/product.service');
+const createOrderService = require('./api/service/order.service');
+
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
-
 
 const pgHost = process.env.PG_HOST || "localhost";
 const pgPort = process.env.PG_PORT || 51435;
@@ -21,33 +23,64 @@ const pool = new Pool({
   password: pgPwd,
 });
 
+const productService = createProductService(pool);
+const orderService = createOrderService(pool);
+
 app.get('/products', async (req, res) => {
-    try {
-      const { rows } = await pool.query('SELECT * FROM product');
-      res.send(rows);
-    } catch (error) {
-      console.error(error);
-      res.sendStatus(500);
-    }
-  });
-  
+  try {
+    res.send(await productService.getAllProducts());
+  } catch (error) {
+    console.error(error);
+    res.sendStatus(500);
+  }
+});
+
 app.post('/products', async (req, res) => {
-    const { name, description, price } = req.body;
-    try {
-      const { rows } = await pool.query(
-        'INSERT INTO product (name, description, price) VALUES ($1, $2, $3) RETURNING *',
-        [name, description, price]
-      );
-      res.send(rows[0]);
-    } catch (error) {
-      console.error(error);
-    }
+  const { name, description, price } = req.body;
+  try {
+    const product = await productService.createProduct(name, description, price);
+    res.status(201).send(product);
+  } catch (error) {
+    console.error(error);
+    res.sendStatus(500);
+  }
+});
+
+app.get('/products/:id', async (req, res) => {
+  try {
+    const product = await productService.getProductById(req.params.id);
+    res.send(product);
+  } catch (error) {
+    console.error(error);
+    res.sendStatus(500);
+  }
+});
+
+app.post('/orders/new', async (req, res) => {
+  const orderEntries = req.body;
+  try {
+    const cartId = await orderService.createOrder(orderEntries);
+    res.status(201).send("" + cartId);
+  } catch (error) {
+    console.error(error);
+    res.sendStatus(500);
+  }
+});
+
+app.get('/orders/:id', async (req, res) => {
+  try {
+    const order = await orderService.getOrderById(req.params.id);
+    res.send(order);
+  } catch (error) {
+    console.error(error);
+    res.sendStatus(500);
+  }
 });
 
 app.get('/', (req, res) => {
-    res.send(`<h1>Bla</h1>`)
+  res.send(`<h1>Bla</h1>`)
 });
 
 app.listen(port, () => {
-    console.log(`Server listening on the port  ${port}`);
+  console.log(`Server listening on the port  ${port}`);
 })
