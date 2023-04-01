@@ -103,7 +103,9 @@ if __name__ == '__main__':
                               '/quarkus-app/quarkus-run.jar']
     b = BenchmarkBase(server_host='localhost', server_start_cmd=server)
 
-    # b.start_remote_server()
+    b.start_remote_server()
+    b.make_request()
+    b.server_process.terminate()
     # time.sleep(30)
     # b.server_process.terminate()
-    print(b.warmup(2))
+    # print(b.warmup(2))
