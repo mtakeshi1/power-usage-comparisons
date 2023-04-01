@@ -75,7 +75,6 @@ def new_order(environ, headers):
                 "(shoppingcart_id, product_id, amount) "
                 "values "
                 "(%s, %s, %s)",
-                prepare=True,
                 params_seq=entries
             )
 
@@ -116,8 +115,7 @@ def view_product_information(environ, headers, **kwargs):
             cursor.execute(
                 "SELECT "
                 "id, name "
-                "FROM public.product ",
-                prepare=True
+                "FROM public.product "
             )
             products = cursor.fetchall()
 
