@@ -11,5 +11,5 @@ COPY . /power/
 
 RUN bundle install && bundle exec bootsnap precompile --gemfile && bundle exec bootsnap precompile app/ lib/
 
-EXPOSE 3000
+EXPOSE 8080
 CMD ["/power/bin/rails", "server"]
