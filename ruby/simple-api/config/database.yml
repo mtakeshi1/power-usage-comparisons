@@ -85,6 +85,3 @@ test:
 #
 production:
   <<: *default
-  database: simple_api_production
-  username: simple_api
-  password: <%= ENV["SIMPLE_API_DATABASE_PASSWORD"] %>
