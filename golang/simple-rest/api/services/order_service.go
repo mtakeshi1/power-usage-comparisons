@@ -52,7 +52,6 @@ func GetOrderById(ctx context.Context, cartId int) *Order {
 
 	cart := getCartById(ctx, tx, cartId)
 	entries := getOrderEntriesByCartId(ctx, tx, cartId)
-	commitTransaction(tx)
 	return &Order{
 		ID:      cartId,
 		Total:   cart.Total,
