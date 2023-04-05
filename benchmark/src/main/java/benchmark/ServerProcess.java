@@ -3,13 +3,14 @@ package benchmark;
 import java.io.Closeable;
 import java.io.IOException;
 
-public class ServerProcess  {
+public class ServerProcess {
 
     private final String name;
     private volatile Process process;
 
     private final String[] startCommands;
     private final String[] stopCommands;
+
 
     public static ServerProcess dockerProcess(String name, String image, String envFile, int externalPort, int internalPort) {
         String[] start = {"docker", "run", "-d", "--rm", "--name", name, "-p%d:%d".formatted(externalPort, internalPort), "--env-file", envFile, image};
@@ -74,20 +75,35 @@ public class ServerProcess  {
         return startCommands[0].endsWith("docker");
     }
 
-//
-//    public ServerProcess overSSH(String host) {
-//        String[] newStart = new String[2 + this.startCommands.length];
-//        newStart[0] = "ssh";
-//        newStart[1] = host;
-//        System.arraycopy(this.startCommands, 0, newStart, 2, this.startCommands.length);
-//        String[] newStop = null;
-//        if (this.stopCommands != null) {
-//            newStop = new String[2 + this.stopCommands.length];
-//            newStop[0] = "ssh";
-//            newStop[1] = host;
-//            System.arraycopy(this.stopCommands, 0, newStop, 2, this.stopCommands.length);
-//        }
-//        return new ServerProcess(this.name, newStart, newStop);
-//    }
+    public ServerProcess overSSH(String host) {
+        if (isDocker()) {
+            return new ServerProcess(this.name, dockerOverSSH(startCommands, host), dockerOverSSH(stopCommands, host));
+        } else {
+            return new ServerProcess(this.name, prependSSH(startCommands, host), prependSSH(stopCommands, host));
+        }
+    }
+
+    private static String[] dockerOverSSH(String[] original, String host) {
+        if (original == null) {
+            return null;
+        }
+        String[] r = new String[2 + original.length];
+        r[0] = "docker";
+        r[1] = "-H";
+        r[2] = "ssh://" + host;
+        System.arraycopy(original, 1, r, 3, original.length-1);
+        return r;
+    }
+
+    private static String[] prependSSH(String[] original, String host) {
+        if (original == null) {
+            return null;
+        }
+        String[] r = new String[2 + original.length];
+        r[0] = "ssh";
+        r[1] = host;
+        System.arraycopy(original, 0, r, 2, original.length);
+        return r;
+    }
 
 }
