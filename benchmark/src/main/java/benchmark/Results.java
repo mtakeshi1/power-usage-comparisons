@@ -5,9 +5,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.LongStream;
 
-public record Results(String name, List<Long> latenciesMillis, long powerUsageMicrojoules, Duration sampleDuration) {
+public record Results(String name, List<Long> latenciesMillis, long energyUsageMicrojoules, Duration sampleDuration) {
     public Results {
         Collections.sort(latenciesMillis);
+    }
+
+    public Results subtractBaseline(long energyMicrojoules, Duration baselineDuration) {
+        double baselinePowerUJsec = ((double) energyMicrojoules) / baselineDuration.toSeconds();
+        long baselineEnergyUJ = (long) (sampleDuration.toSeconds() * baselinePowerUJsec);
+        return new Results(name, latenciesMillis, this.energyUsageMicrojoules() - baselineEnergyUJ, sampleDuration);
     }
 
     public double average() {
@@ -16,6 +22,11 @@ public record Results(String name, List<Long> latenciesMillis, long powerUsageMi
 
     private LongStream latencies() {
         return latenciesMillis.stream().mapToLong(Long::longValue);
+    }
+
+    private double powerWatt() {
+        double duration = sampleDuration.toSeconds();
+        return (energyUsageMicrojoules / 1_000_000.0) / duration;
     }
 
     public long max() {
@@ -37,7 +48,7 @@ public record Results(String name, List<Long> latenciesMillis, long powerUsageMi
 
     @Override
     public String toString() {
-        return "Results{name=%s, samples=%d, duration(secs)=%d, avg=%s, median=%d, p99=%d, power(joules)=%d}"
-                .formatted(name, latenciesMillis.size(), sampleDuration.toSeconds(), average(), median(), p99(), powerUsageMicrojoules / 1_000_000);
+        return "%s, samples=%d, duration(secs)=%d, avg=%.2g, median=%d, p99=%d, power(joules)=%d, max: %d, power(w): %.2g"
+                .formatted(name, latenciesMillis.size(), sampleDuration.toSeconds(), average(), median(), p99(), energyUsageMicrojoules / 1_000_000, max(), powerWatt());
     }
 }

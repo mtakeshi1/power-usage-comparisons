@@ -43,7 +43,7 @@ public class RequestMaker {
     public Results loop(int numberOfRequests, Duration pauseBetweenRequests) throws InterruptedException, IOException {
         List<Long> list = new ArrayList<>(numberOfRequests);
         long pauseNanos = pauseBetweenRequests.toNanos();
-        long before = energyMeasure();
+        long before = energyMeasureMicroJoules();
         long t0 = System.nanoTime();
         for (int i = 0; i < numberOfRequests; i++) {
             long elapsedTime = makeRequest();
@@ -51,7 +51,7 @@ public class RequestMaker {
             TimeUnit.NANOSECONDS.sleep(pauseNanos);
         }
         long t1 = System.nanoTime() - t0;
-        long powerDiff = energyMeasure() - before;
+        long powerDiff = energyMeasureMicroJoules() - before;
         return new Results(name, list, powerDiff, Duration.ofNanos(t1));
     }
 
@@ -91,7 +91,7 @@ public class RequestMaker {
         return URI.create(String.format("http://%s:%d/orders/%d", host, port, orderId));
     }
 
-    private long energyMeasure() throws IOException, InterruptedException {
+    public long energyMeasureMicroJoules() throws IOException, InterruptedException {
         if (scaphandreURI != null) {
             HttpClient client = HttpClient.newHttpClient();
             var response = client.send(HttpRequest.newBuilder().uri(scaphandreURI).build(), HttpResponse.BodyHandlers.ofString());
