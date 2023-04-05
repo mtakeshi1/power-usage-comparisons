@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"database/sql"
 	"log"
 	db "simple-rest/api"
 )
@@ -28,21 +30,29 @@ type ProductOrder struct {
 	ShoppingcartId int `json:"shoppingcartId"`
 }
 
-func CreateOrder(orderEntries []OrderEntry) int {
-	cart := createCart()
+func CreateOrder(ctx context.Context, orderEntries []OrderEntry) int {
+	tx := createTransaction(ctx)
+	defer tx.Rollback()
+
+	cart := createCart(ctx, tx)
 	total := 0.0
 	for _, orderEntry := range orderEntries {
-		product := GetProductById(orderEntry.ProductId)
-		createProductOrder(product.ID, orderEntry.Amount, cart.ID)
+		product := GetProductByIdWithTx(ctx, tx, orderEntry.ProductId)
+		createProductOrder(ctx, tx, product.ID, orderEntry.Amount, cart.ID)
 		total += orderEntry.Amount * product.Price
 	}
-	updateCart(cart.ID, total)
+	updateCart(ctx, tx, cart.ID, total)
+	commitTransaction(tx)
 	return cart.ID
 }
 
-func GetOrderById(cartId int) *Order {
-	cart := getCartById(cartId)
-	entries := getOrderEntriesByCartId(cartId)
+func GetOrderById(ctx context.Context, cartId int) *Order {
+	tx := createTransaction(ctx)
+	defer tx.Rollback()
+
+	cart := getCartById(ctx, tx, cartId)
+	entries := getOrderEntriesByCartId(ctx, tx, cartId)
+	commitTransaction(tx)
 	return &Order{
 		ID:      cartId,
 		Total:   cart.Total,
@@ -50,11 +60,10 @@ func GetOrderById(cartId int) *Order {
 	}
 }
 
-func createCart() (cart *Cart) {
-	db := db.NewDbConnector().OpenDBConnection()
+func createCart(ctx context.Context, tx *sql.Tx) (cart *Cart) {
 	sqlStatement := `INSERT INTO shoppingcart (total) VALUES ($1) RETURNING id`
-	row := db.QueryRow(sqlStatement, 0)
-	defer db.Close()
+	row := tx.QueryRowContext(ctx, sqlStatement, 0)
+
 	var c Cart
 	err := row.Scan(&c.ID)
 	if err != nil {
@@ -63,30 +72,24 @@ func createCart() (cart *Cart) {
 	return &c
 }
 
-func createProductOrder(productId int, amount float64, cartId int) {
-	db := db.NewDbConnector().OpenDBConnection()
+func createProductOrder(ctx context.Context, tx *sql.Tx, productId int, amount float64, cartId int) {
 	sqlStatement := `INSERT INTO productorder (product_id, amount, shoppingcart_id) VALUES ($1, $2, $3)`
-	_, err := db.Exec(sqlStatement, productId, amount, cartId)
-	defer db.Close()
+	_, err := tx.ExecContext(ctx, sqlStatement, productId, amount, cartId)
 	if err != nil {
 		log.Print(err)
 	}
 }
 
-func updateCart(id int, total float64) {
-	db := db.NewDbConnector().OpenDBConnection()
+func updateCart(ctx context.Context, tx *sql.Tx, id int, total float64) {
 	sqlStatement := `UPDATE shoppingcart SET total = $2 where id = ($1)`
-	_, err := db.Exec(sqlStatement, id, total)
-	defer db.Close()
+	_, err := tx.ExecContext(ctx, sqlStatement, id, total)
 	if err != nil {
 		log.Print(err)
 	}
 }
 
-func getCartById(cartId int) (cart *Cart) {
-	db := db.NewDbConnector().OpenDBConnection()
-	row := db.QueryRow("SELECT id, total FROM shoppingcart WHERE id=$1", cartId)
-	defer db.Close()
+func getCartById(ctx context.Context, tx *sql.Tx, cartId int) (cart *Cart) {
+	row := tx.QueryRowContext(ctx, "SELECT id, total FROM shoppingcart WHERE id=$1", cartId)
 	var c Cart
 	err := row.Scan(&c.ID, &c.Total)
 	if err != nil {
@@ -95,9 +98,8 @@ func getCartById(cartId int) (cart *Cart) {
 	return &c
 }
 
-func getOrderEntriesByCartId(cartId int) *[]OrderEntry {
-	db := db.NewDbConnector().OpenDBConnection()
-	rows, err := db.Query("SELECT product_id, amount FROM productorder WHERE shoppingcart_id = $1", cartId)
+func getOrderEntriesByCartId(ctx context.Context, tx *sql.Tx, cartId int) *[]OrderEntry {
+	rows, err := tx.QueryContext(ctx, "SELECT product_id, amount FROM productorder WHERE shoppingcart_id = $1", cartId)
 	if err != nil {
 		log.Print(err)
 	}
@@ -108,9 +110,23 @@ func getOrderEntriesByCartId(cartId int) *[]OrderEntry {
 		rows.Scan(&o.ProductId, &o.Amount)
 		orderEntries = append(orderEntries, o)
 	}
-
 	defer rows.Close()
-	defer db.Close()
 
 	return &orderEntries
+}
+
+func createTransaction(ctx context.Context) *sql.Tx {
+	db := db.GetDbConnector().OpenDBConnection()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	return tx
+}
+
+func commitTransaction(tx *sql.Tx) {
+	if err := tx.Commit(); err != nil {
+		log.Print(err)
+	}
 }

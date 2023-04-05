@@ -16,14 +16,22 @@ type DbConnector struct {
 	pgDatabase string
 }
 
-func NewDbConnector() *DbConnector {
-	return &DbConnector{
+var (
+	dbConnector *DbConnector
+)
+
+func GetDbConnector() *DbConnector {
+	if dbConnector != nil {
+		return dbConnector
+	}
+	dbConnector = &DbConnector{
 		pgHost:     os.Getenv("PG_HOST"),
 		pgPort:     os.Getenv("PG_PORT"),
 		pgUser:     os.Getenv("PG_USER"),
 		pgPwd:      os.Getenv("PG_PWD"),
 		pgDatabase: os.Getenv("PG_DATABASE"),
 	}
+	return dbConnector
 }
 
 func (d DbConnector) OpenDBConnection() *sql.DB {

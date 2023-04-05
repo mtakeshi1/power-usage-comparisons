@@ -15,13 +15,13 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
-	orderId := services.CreateOrder(entries)
+	orderId := services.CreateOrder(c, entries)
 	c.IndentedJSON(http.StatusOK, orderId)
 }
 
 func GetOrderById(c *gin.Context) {
 	orderId, _ := strconv.Atoi(c.Param("orderId"))
 
-	order := services.GetOrderById(orderId)
+	order := services.GetOrderById(c, orderId)
 	c.IndentedJSON(http.StatusOK, order)
 }

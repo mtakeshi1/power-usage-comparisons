@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"database/sql"
 	"log"
 	db "simple-rest/api"
 )
@@ -13,7 +15,7 @@ type Product struct {
 }
 
 func GetAllProducts() *[]Product {
-	db := db.NewDbConnector().OpenDBConnection()
+	db := db.GetDbConnector().OpenDBConnection()
 	rows, err := db.Query("SELECT id, name, description, price FROM product")
 	if err != nil {
 		log.Print(err)
@@ -33,7 +35,7 @@ func GetAllProducts() *[]Product {
 }
 
 func CreateProduct(p *Product) (product *Product, err error) {
-	db := db.NewDbConnector().OpenDBConnection()
+	db := db.GetDbConnector().OpenDBConnection()
 	sqlStatement := `INSERT INTO product (name, description, price) VALUES ($1, $2, $3)`
 	_, errDB := db.Exec(sqlStatement, p.Name, p.Description, p.Price)
 	defer db.Close()
@@ -44,9 +46,19 @@ func CreateProduct(p *Product) (product *Product, err error) {
 }
 
 func GetProductById(productId int) (product *Product) {
-	db := db.NewDbConnector().OpenDBConnection()
+	db := db.GetDbConnector().OpenDBConnection()
 	row := db.QueryRow("SELECT id, name, description, price FROM product WHERE id=$1", productId)
 	defer db.Close()
+	var p Product
+	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Price)
+	if err != nil {
+		log.Print(err)
+	}
+	return &p
+}
+
+func GetProductByIdWithTx(ctx context.Context, tx *sql.Tx, productId int) (product *Product) {
+	row := tx.QueryRowContext(ctx, "SELECT id, name, description, price FROM product WHERE id=$1", productId)
 	var p Product
 	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Price)
 	if err != nil {
