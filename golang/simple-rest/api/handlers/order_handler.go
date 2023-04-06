@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"simple-rest/api/domain"
 	"simple-rest/api/services"
 	"strconv"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func CreateOrder(c *gin.Context) {
-	var entries []services.OrderEntry
+	var entries []domain.OrderEntry
 	if err := c.BindJSON(&entries); err != nil {
 		c.IndentedJSON(http.StatusBadRequest, "invalid order entries")
 		return

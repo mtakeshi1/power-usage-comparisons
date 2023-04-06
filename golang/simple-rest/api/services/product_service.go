@@ -4,52 +4,42 @@ import (
 	"context"
 	"database/sql"
 	"log"
-	db "simple-rest/api"
+	"simple-rest/api/db"
+	"simple-rest/api/domain"
 )
 
-type Product struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-}
-
-func GetAllProducts() *[]Product {
-	db := db.GetDbConnector().OpenDBConnection()
+func GetAllProducts() *[]domain.Product {
+	db := db.GetDB()
 	rows, err := db.Query("SELECT id, name, description, price FROM product")
 	if err != nil {
 		log.Print(err)
 	}
 
-	var products []Product
+	var products []domain.Product
 	for rows.Next() {
-		var p Product
+		var p domain.Product
 		rows.Scan(&p.ID, &p.Name, &p.Description, &p.Price)
 		products = append(products, p)
 	}
-
 	defer rows.Close()
-	defer db.Close()
 
 	return &products
 }
 
-func CreateProduct(p *Product) (product *Product, err error) {
-	db := db.GetDbConnector().OpenDBConnection()
+func CreateProduct(p *domain.Product) (product *domain.Product, err error) {
+	db := db.GetDB()
 	sqlStatement := `INSERT INTO product (name, description, price) VALUES ($1, $2, $3)`
 	_, errDB := db.Exec(sqlStatement, p.Name, p.Description, p.Price)
-	defer db.Close()
 	if errDB != nil {
 		return nil, errDB
 	}
 	return p, nil
 }
 
-func GetProductById(productId int) (product *Product) {
-	db := db.GetDbConnector().OpenDBConnection()
+func GetProductById(productId int) (product *domain.Product) {
+	db := db.GetDB()
 	row := db.QueryRow("SELECT id, name, description, price FROM product WHERE id=$1", productId)
-	defer db.Close()
-	var p Product
+	var p domain.Product
 	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Price)
 	if err != nil {
 		log.Print(err)
@@ -57,9 +47,9 @@ func GetProductById(productId int) (product *Product) {
 	return &p
 }
 
-func GetProductByIdWithTx(ctx context.Context, tx *sql.Tx, productId int) (product *Product) {
+func GetProductByIdWithTx(ctx context.Context, tx *sql.Tx, productId int) (product *domain.Product) {
 	row := tx.QueryRowContext(ctx, "SELECT id, name, description, price FROM product WHERE id=$1", productId)
-	var p Product
+	var p domain.Product
 	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Price)
 	if err != nil {
 		log.Print(err)

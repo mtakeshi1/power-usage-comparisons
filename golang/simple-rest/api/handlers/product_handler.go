@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"simple-rest/api/domain"
 	"simple-rest/api/services"
 	"strconv"
 
@@ -20,7 +21,7 @@ func GetAllProducts(c *gin.Context) {
 }
 
 func CreateProduct(c *gin.Context) {
-	var p services.Product
+	var p domain.Product
 	if err := c.BindJSON(&p); err != nil {
 		c.IndentedJSON(http.StatusBadRequest, "invalid product")
 		return

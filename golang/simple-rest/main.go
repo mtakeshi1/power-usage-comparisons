@@ -2,24 +2,27 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"os"
+	"simple-rest/api/db"
 	"simple-rest/api/handlers"
+	"simple-rest/api/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(".env file couldn't be loaded")
-	}
-	appHost := os.Getenv("APP_HOST")
-	appPort := os.Getenv("APP_PORT")
+	utils.LoadEnvParams()
+	db.PingDB()
 
+	appHost := utils.GetEnvString("APP_HOST")
+	appPort := utils.GetEnvString("APP_PORT")
+	routerHost := fmt.Sprintf("%s:%s", appHost, appPort)
+	router := createRouter()
+	router.Run(routerHost)
+}
+
+func createRouter() *gin.Engine {
 	router := gin.Default()
 	router.GET("/ping", PingHandler)
 
@@ -30,8 +33,7 @@ func main() {
 	router.POST("/orders/new", handlers.CreateOrder)
 	router.GET("/orders/:orderId", handlers.GetOrderById)
 
-	routerHost := fmt.Sprintf("%s:%s", appHost, appPort)
-	router.Run(routerHost)
+	return router
 }
 
 func PingHandler(c *gin.Context) {

@@ -4,33 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"log"
-	db "simple-rest/api"
+	db "simple-rest/api/db"
+	"simple-rest/api/domain"
 )
 
-type OrderEntry struct {
-	ProductId int     `json:"productId"`
-	Amount    float64 `json:"amount"`
-}
-
-type Order struct {
-	ID      int           `json:"id"`
-	Total   float64       `json:"total"`
-	Entries *[]OrderEntry `json:"entries"`
-}
-
-type Cart struct {
-	ID    int     `json:"id"`
-	Total float64 `json:"total"`
-}
-
-type ProductOrder struct {
-	ID             int `json:"id"`
-	Amount         int `json:"amount"`
-	ProductId      int `json:"productId"`
-	ShoppingcartId int `json:"shoppingcartId"`
-}
-
-func CreateOrder(ctx context.Context, orderEntries []OrderEntry) int {
+func CreateOrder(ctx context.Context, orderEntries []domain.OrderEntry) int {
 	tx := createTransaction(ctx)
 	defer tx.Rollback()
 
@@ -46,24 +24,21 @@ func CreateOrder(ctx context.Context, orderEntries []OrderEntry) int {
 	return cart.ID
 }
 
-func GetOrderById(ctx context.Context, cartId int) *Order {
-	tx := createTransaction(ctx)
-	defer tx.Rollback()
-
-	cart := getCartById(ctx, tx, cartId)
-	entries := getOrderEntriesByCartId(ctx, tx, cartId)
-	return &Order{
+func GetOrderById(ctx context.Context, cartId int) *domain.Order {
+	cart := getCartById(cartId)
+	entries := getOrderEntriesByCartId(cartId)
+	return &domain.Order{
 		ID:      cartId,
 		Total:   cart.Total,
 		Entries: entries,
 	}
 }
 
-func createCart(ctx context.Context, tx *sql.Tx) (cart *Cart) {
+func createCart(ctx context.Context, tx *sql.Tx) (cart *domain.Cart) {
 	sqlStatement := `INSERT INTO shoppingcart (total) VALUES ($1) RETURNING id`
 	row := tx.QueryRowContext(ctx, sqlStatement, 0)
 
-	var c Cart
+	var c domain.Cart
 	err := row.Scan(&c.ID)
 	if err != nil {
 		log.Print(err)
@@ -87,9 +62,10 @@ func updateCart(ctx context.Context, tx *sql.Tx, id int, total float64) {
 	}
 }
 
-func getCartById(ctx context.Context, tx *sql.Tx, cartId int) (cart *Cart) {
-	row := tx.QueryRowContext(ctx, "SELECT id, total FROM shoppingcart WHERE id=$1", cartId)
-	var c Cart
+func getCartById(cartId int) (cart *domain.Cart) {
+	db := db.GetDB()
+	row := db.QueryRow("SELECT id, total FROM shoppingcart WHERE id=$1", cartId)
+	var c domain.Cart
 	err := row.Scan(&c.ID, &c.Total)
 	if err != nil {
 		log.Print(err)
@@ -97,15 +73,16 @@ func getCartById(ctx context.Context, tx *sql.Tx, cartId int) (cart *Cart) {
 	return &c
 }
 
-func getOrderEntriesByCartId(ctx context.Context, tx *sql.Tx, cartId int) *[]OrderEntry {
-	rows, err := tx.QueryContext(ctx, "SELECT product_id, amount FROM productorder WHERE shoppingcart_id = $1", cartId)
+func getOrderEntriesByCartId(cartId int) *[]domain.OrderEntry {
+	db := db.GetDB()
+	rows, err := db.Query("SELECT product_id, amount FROM productorder WHERE shoppingcart_id = $1", cartId)
 	if err != nil {
 		log.Print(err)
 	}
 
-	var orderEntries []OrderEntry
+	var orderEntries []domain.OrderEntry
 	for rows.Next() {
-		var o OrderEntry
+		var o domain.OrderEntry
 		rows.Scan(&o.ProductId, &o.Amount)
 		orderEntries = append(orderEntries, o)
 	}
@@ -115,7 +92,7 @@ func getOrderEntriesByCartId(ctx context.Context, tx *sql.Tx, cartId int) *[]Ord
 }
 
 func createTransaction(ctx context.Context) *sql.Tx {
-	db := db.GetDbConnector().OpenDBConnection()
+	db := db.GetDB()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Print(err)
