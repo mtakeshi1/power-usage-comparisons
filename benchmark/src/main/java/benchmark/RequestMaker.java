@@ -41,13 +41,12 @@ public class RequestMaker {
     }
 
     public Results loop(int numberOfRequests, Duration pauseBetweenRequests) throws InterruptedException, IOException {
-        List<Long> list = new ArrayList<>(numberOfRequests);
+        List<Duration> list = new ArrayList<>(numberOfRequests);
         long pauseNanos = pauseBetweenRequests.toNanos();
         long before = energyMeasureMicroJoules();
         long t0 = System.nanoTime();
         for (int i = 0; i < numberOfRequests; i++) {
-            long elapsedTime = makeRequest();
-            list.add(TimeUnit.NANOSECONDS.toMillis(elapsedTime));
+            list.add(makeRequest());
             TimeUnit.NANOSECONDS.sleep(pauseNanos);
         }
         long t1 = System.nanoTime() - t0;
@@ -106,7 +105,7 @@ public class RequestMaker {
         return 0;
     }
 
-    public long makeRequest() throws IOException, InterruptedException {
+    public Duration makeRequest() throws IOException, InterruptedException {
         HttpRequest build = HttpRequest.newBuilder()
                 .GET()
                 .uri(productsURI)
@@ -117,12 +116,12 @@ public class RequestMaker {
         long t0 = System.nanoTime();
         HttpResponse<String> send = client.send(build, HttpResponse.BodyHandlers.ofString());
         if (send.statusCode() != 200) {
-            throw new RuntimeException("Http response code: %d - %s".formatted(send.statusCode(), send.body()));
+            throw new RuntimeException("%s - Http response code: %d - %s".formatted(name, send.statusCode(), send.body()));
         }
         for (int productId : select) {
             int code = client.send(HttpRequest.newBuilder().uri(productURI(productId)).build(), HttpResponse.BodyHandlers.discarding()).statusCode();
             if (!validateResponse(code)) {
-                throw new RuntimeException("Http response code: %d for product id: %d - %s".formatted(send.statusCode(), productId, send.body()));
+                throw new RuntimeException("%s Http response code: %d for product id: %d - %s".formatted(name, send.statusCode(), productId, send.body()));
             }
         }
         var response = client.send(HttpRequest.newBuilder()
@@ -131,13 +130,13 @@ public class RequestMaker {
                 .header("Content-Type", "application/json")
                 .build(), HttpResponse.BodyHandlers.ofString());
         if (!validateResponse(response.statusCode())) {
-            throw new RuntimeException("Http response code: %d for POST - %s".formatted(response.statusCode(), send.body()));
+            throw new RuntimeException("%s Http response code: %d for POST - %s".formatted(name, response.statusCode(), send.body()));
         }
         int orderId = Integer.parseInt(response.body());
         if (!validateResponse(client.send(HttpRequest.newBuilder().uri(orderURI(orderId)).build(), HttpResponse.BodyHandlers.discarding()).statusCode())) {
-            throw new RuntimeException("Http response code: %d  for order id: %d - %s".formatted(send.statusCode(), orderId, send.body()));
+            throw new RuntimeException("%s Http response code: %d  for order id: %d - %s".formatted(name, send.statusCode(), orderId, send.body()));
         }
-        return System.nanoTime() - t0;
+        return Duration.ofNanos(System.nanoTime() - t0);
     }
 
     public static boolean validateResponse(int response) {
@@ -146,6 +145,6 @@ public class RequestMaker {
 
     public static void main(String[] args) throws Exception {
         RequestMaker maker = new RequestMaker("sample", "localhost", 8080, 8081);
-        System.out.println(maker.makeRequest() + "ns");
+        System.out.println(maker.loop(1000, Duration.ofMillis(10)));
     }
 }

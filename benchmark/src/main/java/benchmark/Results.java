@@ -5,23 +5,23 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.LongStream;
 
-public record Results(String name, List<Long> latenciesMillis, long energyUsageMicrojoules, Duration sampleDuration) {
+public record Results(String name, List<Duration> latencies, long energyUsageMicrojoules, Duration sampleDuration) {
     public Results {
-        Collections.sort(latenciesMillis);
+        Collections.sort(latencies);
     }
 
     public Results subtractBaseline(long energyMicrojoules, Duration baselineDuration) {
         double baselinePowerUJsec = ((double) energyMicrojoules) / baselineDuration.toSeconds();
         long baselineEnergyUJ = (long) (sampleDuration.toSeconds() * baselinePowerUJsec);
-        return new Results(name, latenciesMillis, this.energyUsageMicrojoules() - baselineEnergyUJ, sampleDuration);
+        return new Results(name, latencies, this.energyUsageMicrojoules() - baselineEnergyUJ, sampleDuration);
     }
 
     public double average() {
-        return latencies().average().orElse(0);
+        return latenciesMillis().average().orElse(0);
     }
 
-    private LongStream latencies() {
-        return latenciesMillis.stream().mapToLong(Long::longValue);
+    private LongStream latenciesMillis() {
+        return latencies.stream().mapToLong(Duration::toMillis);
     }
 
     private double powerWatt() {
@@ -29,13 +29,17 @@ public record Results(String name, List<Long> latenciesMillis, long energyUsageM
         return (energyUsageMicrojoules / 1_000_000.0) / duration;
     }
 
+    public double energyJoules() {
+        return energyUsageMicrojoules / 1_000_000.0;
+    }
+
     public long max() {
-        return latencies().max().orElse(0);
+        return latenciesMillis().max().orElse(0);
     }
 
     public long percentile(double perc) {
-        int index = (int) (perc * latenciesMillis.size());
-        return latenciesMillis.get(index);
+        int index = (int) (perc * latencies.size());
+        return latencies.get(index).toMillis();
     }
 
     public long median() {
@@ -48,7 +52,8 @@ public record Results(String name, List<Long> latenciesMillis, long energyUsageM
 
     @Override
     public String toString() {
-        return "%s, samples=%d, duration(secs)=%d, avg=%.2g, median=%d, p99=%d, power(joules)=%d, max: %d, power(w): %.2g"
-                .formatted(name, latenciesMillis.size(), sampleDuration.toSeconds(), average(), median(), p99(), energyUsageMicrojoules / 1_000_000, max(), powerWatt());
+        return "%s, samples=%d, duration(secs)=%d, avg latency=%.2g, median latency=%d, p99 latency=%d, max latency: %d, energy(joules)=%g, avg_power_draw(w): %.2g, joules per request: %.2g"
+                .formatted(name, latencies.size(), sampleDuration.toSeconds(), average(), median(), p99(),
+                        max(), energyJoules(), powerWatt(), energyJoules() / latencies.size());
     }
 }

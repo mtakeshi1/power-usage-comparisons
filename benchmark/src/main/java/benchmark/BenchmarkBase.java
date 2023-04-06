@@ -5,21 +5,21 @@ import java.util.concurrent.TimeUnit;
 
 public class BenchmarkBase {
 
-    private final ServerProcess databaseProcess = standardDatabaseProcess();
+    protected final ServerProcess databaseProcess = standardDatabaseProcess();
 
-    private final ServerProcess[] variations = {
+    protected final ServerProcess[] variations = {
             quarkus(STANDARD_PORT),
 
             ruby(STANDARD_PORT),
-            golang(STANDARD_PORT),
+//            golang(STANDARD_PORT),
             node(STANDARD_PORT),
             jude(STANDARD_PORT),
     };
 
     private final String host;
 
-    private long baselineEnergyUJoules;
-    private final Duration baselineMeasureDuration = Duration.ofMinutes(2);
+    protected long baselineEnergyUJoules;
+    protected final Duration baselineMeasureDuration = Duration.ofMinutes(2);
 
     public BenchmarkBase(String host) {
         this.host = host;
@@ -88,13 +88,23 @@ public class BenchmarkBase {
     }
 
     public void measureBaseline() {
+        System.out.println("Measuring baseline power draw");
         RequestMaker maker = newRequestMaker("baseline");
         try {
             long initialJ = maker.energyMeasureMicroJoules();
             TimeUnit.NANOSECONDS.sleep(baselineMeasureDuration.toNanos());
             this.baselineEnergyUJoules = maker.energyMeasureMicroJoules() - initialJ;
+            System.out.printf("baseline power draw (W): %.2g%n", ((double) baselineEnergyUJoules/1_000_000) / baselineMeasureDuration.toSeconds());
         } catch (Exception e) {
             throw new RuntimeException("could not stabilish baseline energy usage", e);
+        }
+    }
+
+    public void thousandRequests(String name) throws Exception {
+        for (var proc : variations) {
+            if (proc.getName().equals(name)) {
+                thousandRequests(proc);
+            }
         }
     }
 
@@ -105,7 +115,8 @@ public class BenchmarkBase {
         try (var ignored = databaseProcess.start(); var ignored2 = proc.start()) {
             System.out.println(proc.getName() + " started");
             RequestMaker maker = newRequestMaker(proc);
-            Results results = maker.loop(requests, Duration.ofMillis(pauseMillis)).subtractBaseline(this.baselineEnergyUJoules, this.baselineMeasureDuration);
+            Results results = maker.loop(requests, Duration.ofMillis(pauseMillis))
+                    .subtractBaseline(this.baselineEnergyUJoules, this.baselineMeasureDuration);
             System.out.println(results);
         }
     }
