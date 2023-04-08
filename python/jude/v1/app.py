@@ -6,7 +6,7 @@ import os
 
 # --- APPLICATION CONTEXT -----------------------------------------------------
 connection_string = os.getenv("DB_CONNECTION_STRING")
-pool = psycopg_pool.ConnectionPool(connection_string)
+pool = psycopg_pool.NullConnectionPool(connection_string)
 
 # --- HTTP WEB RESOURCE -------------------------------------------------------
 status_map = {
@@ -18,32 +18,27 @@ status_map = {
 }
 
 
-def not_found(environ, headers):
+def not_found(environ, headers, connection):
     return None, 404
 
 
-def new_order(environ, headers):
+def new_order(environ, headers, connection):
     entries = simplejson.load(environ.get('wsgi.input'))
     entries = list(
         (int(entry['productId']), int(entry['amount']))
         for entry in entries
     )
 
-    with pool.connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT "
-                "id, name, price, description "
-                "FROM public.product "
-            )
-            products = cursor.fetchall()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT "
+            "id, price "
+            "FROM public.product "
+        )
+        products = cursor.fetchall()
 
     products = {
-        product_information[0]: dict(
-            name=product_information[1],
-            price=product_information[2],
-            description=product_information[3]
-        )
+        product_information[0]: product_information[1]
         for product_information in products
     }
 
@@ -52,31 +47,30 @@ def new_order(environ, headers):
         if entry_id not in products:
             raise ValueError
         else:
-            product_price = products[entry_id].get('price')
+            product_price = products[entry_id]
             total += product_price*entry_amount
 
-    with pool.connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO public.shoppingcart "
-                "(total) "
-                "VALUES "
-                "(%s) "
-                "RETURNING id",
-                params=[total]
-            )
-            order_id, = cursor.fetchone()
-            entries = list(
-                [order_id, product_id, amount]
-                for product_id, amount in entries
-            )
-            cursor.executemany(
-                "INSERT INTO public.productorder "
-                "(shoppingcart_id, product_id, amount) "
-                "values "
-                "(%s, %s, %s)",
-                params_seq=entries
-            )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO public.shoppingcart "
+            "(total) "
+            "VALUES "
+            "(%s) "
+            "RETURNING id",
+            params=[total]
+        )
+        order_id, = cursor.fetchone()
+        entries = list(
+            [order_id, product_id, amount]
+            for product_id, amount in entries
+        )
+        cursor.executemany(
+            "INSERT INTO public.productorder "
+            "(shoppingcart_id, product_id, amount) "
+            "values "
+            "(%s, %s, %s)",
+            params_seq=entries
+        )
 
     headers.append(('Content-Type', 'application/json'))
     return simplejson.dumps(order_id), 201
@@ -86,18 +80,17 @@ def new_order(environ, headers):
 class ViewProduct:
     id: str
 
-    def __call__(self, environ, headers):
+    def __call__(self, environ, headers, connection):
         id = int(self.id)
-        with pool.connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT "
-                    "name, price, description "
-                    "FROM public.product "
-                    "where id=%s",
-                    params=[id]
-                )
-                product = cursor.fetchone()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT "
+                "name, price, description "
+                "FROM public.product "
+                "where id=%s",
+                params=[id]
+            )
+            product = cursor.fetchone()
 
         product = dict(
             id=id,
@@ -109,15 +102,14 @@ class ViewProduct:
         return simplejson.dumps(product), 200
 
 
-def view_product_information(environ, headers, **kwargs):
-    with pool.connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT "
-                "id, name "
-                "FROM public.product "
-            )
-            products = cursor.fetchall()
+def view_product_information(environ, headers, connection):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT "
+            "id, name "
+            "FROM public.product "
+        )
+        products = cursor.fetchall()
 
     products = list(
         dict(
@@ -134,26 +126,25 @@ def view_product_information(environ, headers, **kwargs):
 class ViewOrder:
     id: str
 
-    def __call__(self, environ, headers):
+    def __call__(self, environ, headers, connection):
         id = int(self.id)
-        with pool.connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT "
-                    "total "
-                    "FROM public.shoppingcart "
-                    "WHERE id=%s",
-                    params=[id]
-                )
-                total, = cursor.fetchone()
-                cursor.execute(
-                    "SELECT "
-                    "amount, product_id "
-                    "from public.productorder "
-                    "where shoppingcart_id=%s",
-                    params=[id]
-                )
-                order_entries = cursor.fetchall()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT "
+                "total "
+                "FROM public.shoppingcart "
+                "WHERE id=%s",
+                params=[id]
+            )
+            total, = cursor.fetchone()
+            cursor.execute(
+                "SELECT "
+                "amount, product_id "
+                "from public.productorder "
+                "where shoppingcart_id=%s",
+                params=[id]
+            )
+            order_entries = cursor.fetchall()
 
         headers.append(('Content-Type', 'application/json'))
         return simplejson.dumps(dict(
@@ -197,7 +188,8 @@ def create(environ, start_response):
         segments = [segment for segment, _ in zip(segments, range(5))]
         resource = resource_of(segments)
 
-        data, status = resource(environ, response_headers)
+        with pool.connection() as connection:
+            data, status = resource(environ, response_headers, connection)
     except ValueError as e:
         data = str(e)
         status = 400
