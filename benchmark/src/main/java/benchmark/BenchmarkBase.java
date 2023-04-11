@@ -1,17 +1,20 @@
 package benchmark;
 
 import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
 
 public class BenchmarkBase {
+
+    private final String baseFolder = "results/" + DateTimeFormatter.ISO_DATE_TIME.format(ZonedDateTime.now());
 
     protected final ServerProcess databaseProcess = standardDatabaseProcess();
 
     protected final ServerProcess[] variations = {
             quarkus(STANDARD_PORT),
-
             ruby(STANDARD_PORT),
-//            golang(STANDARD_PORT),
+            golang(STANDARD_PORT),
             node(STANDARD_PORT),
             jude(STANDARD_PORT),
     };
@@ -20,6 +23,10 @@ public class BenchmarkBase {
 
     protected long baselineEnergyUJoules;
     protected final Duration baselineMeasureDuration = Duration.ofMinutes(2);
+
+    public void disableBaseline() {
+        baselineEnergyUJoules = -1;
+    }
 
     public BenchmarkBase(String host) {
         this.host = host;
@@ -110,14 +117,17 @@ public class BenchmarkBase {
 
     public void thousandRequests(ServerProcess proc) throws Exception {
         int requests = 1000;
-        int pauseMillis = 10;
-        System.out.println("starting " + proc.getName() + " with " + requests + " requests with pause: " + pauseMillis);
+        int pauseMillis = 1;
+//        System.out.println("starting " + proc.getName() + " with " + requests + " requests with pause: " + pauseMillis);
         try (var ignored = databaseProcess.start(); var ignored2 = proc.start()) {
-            System.out.println(proc.getName() + " started");
+//            System.out.println(proc.getName() + " started");
             RequestMaker maker = newRequestMaker(proc);
             Results results = maker.loop(requests, Duration.ofMillis(pauseMillis))
                     .subtractBaseline(this.baselineEnergyUJoules, this.baselineMeasureDuration);
-            System.out.println(results);
+//            System.out.println(results);
+            for(var d: results.latencies()) {
+                System.out.println(d.toMillis());
+            }
         }
     }
 
@@ -131,7 +141,7 @@ public class BenchmarkBase {
     }
 
     public static void main(String[] args) throws Exception {
-        new BenchmarkBase().thousandRequests();
+        new BenchmarkBase().thousandRequests("javaquarkus");
     }
 
 

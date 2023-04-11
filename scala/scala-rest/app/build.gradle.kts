@@ -28,6 +28,7 @@ dependencies {
     implementation("io.circe:circe-parser_3:0.15.0-M1")
     implementation("io.circe:circe-core_3:0.15.0-M1")
     implementation("org.http4s:http4s-circe_3:1.0.0-M39")
+    implementation("org.tpolecat:skunk-core_3:0.5.1")
 //    implementation("tf.tofu:derevo-cats_2.13:0.13.0")
     // Use Scalatest for testing our library
     testImplementation("junit:junit:4.13.2")

@@ -13,3 +13,6 @@ repositories {
     mavenCentral()
     mavenLocal()
 }
+tasks.withType(JavaCompile::class.java) { options.compilerArgs.add("--enable-preview")}
+
+tasks.withType(JavaExec::class.java) {jvmArgs!!.add("--enable-preview")}
