@@ -22,4 +22,5 @@ pgsql:
 	docker build -t power/pgsql scripts/
 
 benchmarkcode:
-	benchmark/gradlew build
+	+$(MAKE) -C benchmark
+
