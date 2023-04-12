@@ -13,10 +13,11 @@ public class BenchmarkBase {
     protected final ServerProcess databaseProcess = standardDatabaseProcess();
 
     protected final ServerProcess[] variations = {
-            quarkus(STANDARD_PORT),
-            ruby(STANDARD_PORT),
-            golang(STANDARD_PORT),
-            node(STANDARD_PORT),
+//            quarkus(STANDARD_PORT),
+//            ruby(STANDARD_PORT),
+//            golang(STANDARD_PORT),
+//            node(STANDARD_PORT),
+            django(STANDARD_PORT),
             jude(STANDARD_PORT),
     };
 
@@ -67,6 +68,10 @@ public class BenchmarkBase {
         return ServerProcess.dockerProcess("pythonjude", "power/jude", ".env", externalPort, 8000);
     }
 
+    public static ServerProcess django(int externalPort) {
+        return ServerProcess.dockerProcess("pythondjango", "power/django", ".env", externalPort, 8000);
+    }
+
     public static ServerProcess ruby(int externalPort) {
         return ServerProcess.dockerProcess("ruby", "power/ruby", ".env", externalPort, 8080);
     }
@@ -89,7 +94,7 @@ public class BenchmarkBase {
     public void sanity(ServerProcess proc) throws Exception {
         System.out.println("starting " + proc.getName());
         try (var ignored = databaseProcess.start(); var ignored2 = proc.start()) {
-            System.out.println(proc.getName() + "started");
+            System.out.println(proc.getName() + " started");
             RequestMaker maker = newRequestMaker(proc);
             maker.makeRequest();
             System.out.println(proc.getName() + " all good");
@@ -151,7 +156,7 @@ public class BenchmarkBase {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println(new BenchmarkBase().cpuSnapshot());
+        new BenchmarkBase().sanityAll();
     }
 
 

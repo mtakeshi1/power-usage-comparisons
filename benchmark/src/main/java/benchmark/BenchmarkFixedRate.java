@@ -1,13 +1,15 @@
 package benchmark;
 
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 public class BenchmarkFixedRate extends BenchmarkDelayRate {
 
@@ -39,11 +41,10 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
     public static void main(String[] args) throws IOException {
         BenchmarkFixedRate rate = new BenchmarkFixedRate("localhost", true);
 //        rate.disableBaseline();
-//        rate.redirectOutputs();
-        String[] procNames = {"pythonjude"};
-//        List<String> procNames = Arrays.asList("pythonjude", "javaquarkus", "ruby", "golang", "node");
-//        Collections.shuffle(procNames);
-        Duration testDuration = Duration.ofSeconds(120);
+        rate.redirectOutputs();
+        List<String> procNames = Arrays.asList("pythonjude", "javaquarkus", "ruby", "golang", "node");
+        Collections.shuffle(procNames);
+        Duration testDuration = Duration.ofSeconds(180);
         List<RateInputParameters> list = new ArrayList<>();
         for (var proc : procNames) {
             int numberOfClients = 8;
@@ -55,8 +56,7 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
             }
         }
         Collections.reverse(list);
-        String output = rate.runAllWriteResults(list);
-        System.out.println(output);
+        rate.runAllWriteResults(list);
     }
 
 }

@@ -68,7 +68,7 @@ public class ProcessHelper {
                 return -1;
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
         return read;
     }
