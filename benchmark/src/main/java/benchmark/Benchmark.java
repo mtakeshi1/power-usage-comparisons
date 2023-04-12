@@ -1,11 +1,6 @@
 package benchmark;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -63,19 +58,29 @@ public interface Benchmark<IN extends InputParameters> {
 
     default String runAllWriteResults(List<IN> inputs) throws IOException {
         String csv = runFormatCSV(inputs);
-        String className = getClassName();
-        String baseFolder = "results/";
-        File f = new File(baseFolder);
+        File f = getBaseFolder();
         if (!f.exists() && !f.mkdirs()) {
             throw new RuntimeException("could not create folder: " + f);
         }
-        File out = new File(f, className + "-" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now()) + ".csv");
+//        String className = getClassName();
+        File out = new File(f, "results.csv");
         System.out.println("writing to file: " + out.getAbsolutePath());
         try (var fout = new BufferedWriter(new FileWriter(out))) {
             fout.write(csv);
         }
         return csv;
     }
+
+    default void redirectOutputs() throws IOException {
+        File f = getBaseFolder();
+        if (!f.exists() && !f.mkdirs()) {
+            throw new RuntimeException("could not create folder: " + f);
+        }
+        System.setOut(new PrintStream(new FileOutputStream(new File(f, "stdout.log")), true));
+        System.setErr(new PrintStream(new FileOutputStream(new File(f, "stderr.log")), true));
+    }
+
+    File getBaseFolder();
 
     default String getClassName() {
         String className = getClass().getName();
