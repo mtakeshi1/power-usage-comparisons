@@ -1,6 +1,5 @@
 package benchmark;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
@@ -50,35 +49,31 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         if (super.baselineEnergyUJoules == 0) {
             measureBaseline();
         }
-        FileWriter writer = null;
-        try {
-            System.out.printf("Starting %s with %d clients and %.2g reqs/sec for %ds%n", process.getName(), numberOfClients, requestPerSecond, testDuration.toSeconds());
-            ExecutorService pool = Executors.newFixedThreadPool(numberOfClients);
-            try (var ignored = getDatabaseProcess().start(); var ignored2 = process.start()) {
-                List<Future<List<Duration>>> futures = new ArrayList<>(numberOfClients);
-                RequestMaker maker = newRequestMaker(process);
-                long startJoules = maker.energyMeasureMicroJoules();
-                long deadLine = System.currentTimeMillis() + testDuration.toMillis();
-                long period = (long) (1000 / requestPerSecond);
-                long t0 = System.nanoTime();
-                for (int i = 0; i < numberOfClients; i++) {
-                    futures.add(pool.submit(() -> requestLoop(maker, deadLine, period)));
-                }
-                List<Duration> latencies = new ArrayList<>();
-                for (var fut : futures) {
-                    latencies.addAll(fut.get());
-                }
-                long totalEnergy = maker.energyMeasureMicroJoules() - startJoules;
-                long totalTime = System.nanoTime() - t0;
-                System.out.printf("Finished %s with %d requests%n", process.getName(), latencies.size());
-                return new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
-            } catch (ExecutionException e) {
-                throw new RuntimeException(e.getCause());
-            } finally {
-                pool.shutdownNow();
+        System.out.printf("Starting %s with %d clients and %.2g reqs/sec for %ds%n", process.getName(), numberOfClients, requestPerSecond, testDuration.toSeconds());
+        ExecutorService pool = Executors.newFixedThreadPool(numberOfClients);
+        try (var ignored = getDatabaseProcess().start(); var ignored2 = process.start()) {
+            var cpu = cpuSnapshot();
+            List<Future<List<Duration>>> futures = new ArrayList<>(numberOfClients);
+            RequestMaker maker = newRequestMaker(process);
+            long startJoules = maker.energyMeasureMicroJoules();
+            long deadLine = System.currentTimeMillis() + testDuration.toMillis();
+            long period = (long) (1000 / requestPerSecond);
+            long t0 = System.nanoTime();
+            for (int i = 0; i < numberOfClients; i++) {
+                futures.add(pool.submit(() -> requestLoop(maker, deadLine, period)));
             }
+            List<Duration> latencies = new ArrayList<>();
+            for (var fut : futures) {
+                latencies.addAll(fut.get());
+            }
+            long totalEnergy = maker.energyMeasureMicroJoules() - startJoules;
+            long totalTime = System.nanoTime() - t0;
+            System.out.printf("Finished %s with %d requests%n", process.getName(), latencies.size());
+            return new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime), cpuSnapshot().diffFrom(cpu)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
         } finally {
-            if (writer != null) writer.close();
+            pool.shutdownNow();
         }
     }
 

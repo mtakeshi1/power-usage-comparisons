@@ -2,6 +2,7 @@ package benchmark;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class ServerProcess {
 
@@ -26,6 +27,28 @@ public class ServerProcess {
 
     public ServerProcess(String name, String[] startCommands) {
         this(name, startCommands, null);
+    }
+
+    public synchronized String runReadResponse() throws IOException, InterruptedException {
+        if (process != null && process.isAlive()) {
+            stop();
+        }
+        ProcessBuilder pb = new ProcessBuilder(startCommands);
+        this.process = pb.start();
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                try {
+                    ServerProcess.this.stop();
+                } catch (IOException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        if (!process.waitFor(1, TimeUnit.SECONDS)) {
+            throw new RuntimeException("head -1 /proc/stat did not finish within 1 sec. Err: " + new String(process.getErrorStream().readAllBytes()));
+        }
+        return new String(process.getInputStream().readAllBytes());
     }
 
     public synchronized Closeable start() throws IOException, InterruptedException {
@@ -91,7 +114,7 @@ public class ServerProcess {
         r[0] = "docker";
         r[1] = "-H";
         r[2] = "ssh://" + host;
-        System.arraycopy(original, 1, r, 3, original.length-1);
+        System.arraycopy(original, 1, r, 3, original.length - 1);
         return r;
     }
 

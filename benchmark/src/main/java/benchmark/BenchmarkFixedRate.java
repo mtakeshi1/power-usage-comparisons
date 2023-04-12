@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.*;
@@ -19,6 +20,8 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
 
     public BenchmarkFixedRate() {
     }
+
+    private final String baseFolder = "results/" + getClassName() + "/" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
 
     public Results run(ServerProcess process, Duration testDuration, int numberOfClients, double requestPerSecond) throws IOException, InterruptedException {
         if (super.baselineEnergyUJoules == 0) {
@@ -33,7 +36,6 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
         FileWriter toClose = null;
         try (var ignored = getDatabaseProcess().start(); var ignored2 = process.start()) {
             if (super.writeResults) {
-                String baseFolder = "results/" + getClassName() + "/" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
                 File f = new File(baseFolder);
                 if (!f.exists() && !f.mkdirs()) {
                     throw new RuntimeException("could not create folder: " + f);
@@ -45,7 +47,9 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
             }
             List<ScheduledFuture<?>> futures = new ArrayList<>();
             RequestMaker maker = newRequestMaker(process);
+            CPUSnapshot snap = cpuSnapshot();
             long startJoules = maker.energyMeasureMicroJoules();
+
             long period = (long) (1000 / requestPerSecond);
             long t0 = System.nanoTime();
             List<Duration> latencies = new CopyOnWriteArrayList<>();
@@ -57,7 +61,7 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
                             Duration e = maker.makeRequest();
                             if (System.nanoTime() <= deadline) {
                                 latencies.add(e);
-                                if (writer != null) writer.write(e.toSeconds() + "\n");
+                                if (writer != null) writer.write(e.toMillis() + "\n");
                             }
                         } catch (Exception e) {
                             throw new RuntimeException(e);
@@ -80,7 +84,8 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
             long totalEnergy = maker.energyMeasureMicroJoules() - startJoules;
             long totalTime = System.nanoTime() - t0;
             System.out.printf("Finished %s with %d requests%n", process.getName(), latencies.size());
-            return new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
+
+            return new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime), cpuSnapshot().diffFrom(snap)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
         } catch (ExecutionException e) {
             throw new RuntimeException(e.getCause());
         } finally {
@@ -92,13 +97,15 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
     public static void main(String[] args) throws IOException {
         BenchmarkFixedRate rate = new BenchmarkFixedRate("localhost", true);
 //        rate.disableBaseline();
-        String[] procNames = {"pythonjude", "javaquarkus", "ruby", "golang", "node"};
-        Duration testDuration = Duration.ofSeconds(300);
+        List<String> procNames = Arrays.asList("pythonjude", "javaquarkus", "ruby", "golang", "node");
+        Collections.shuffle(procNames);
+
+        Duration testDuration = Duration.ofSeconds(600);
         List<RateInputParameters> list = new ArrayList<>();
         for (var proc : procNames) {
             int numberOfClients = 8;
             double reqsPerSecond = 1;
-            while (numberOfClients > 0) {
+            while (numberOfClients >= 1) {
                 list.add(new RateInputParameters(proc, testDuration, numberOfClients, reqsPerSecond));
                 numberOfClients /= 2;
                 reqsPerSecond *= 2.0;

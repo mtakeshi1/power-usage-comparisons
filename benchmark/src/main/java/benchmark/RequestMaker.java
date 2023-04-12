@@ -51,7 +51,7 @@ public class RequestMaker {
         }
         long t1 = System.nanoTime() - t0;
         long powerDiff = energyMeasureMicroJoules() - before;
-        return new Results(name, list, powerDiff, Duration.ofNanos(t1));
+        return new Results(name, list, powerDiff, Duration.ofNanos(t1), new CPUUsage(0, 0, 1, 0));
     }
 
     private static void shuffle(int[] array) {

@@ -1,5 +1,6 @@
 package benchmark;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +20,8 @@ public class BenchmarkBase {
             jude(STANDARD_PORT),
     };
 
+    private ServerProcess procStat = new ServerProcess("cpu", new String[] {"head", "-1", "/proc/stat"});
+
     private final String host;
 
     protected long baselineEnergyUJoules;
@@ -34,6 +37,7 @@ public class BenchmarkBase {
             for (int i = 0; i < variations.length; i++) {
                 variations[i] = variations[i].overSSH(host);
             }
+            procStat = this.procStat.overSSH(host);
         }
     }
 
@@ -45,6 +49,10 @@ public class BenchmarkBase {
 
     public ServerProcess getDatabaseProcess() {
         return databaseProcess;
+    }
+
+    public CPUSnapshot cpuSnapshot() throws IOException, InterruptedException {
+        return CPUSnapshot.parseLinuxStat(procStat.runReadResponse());
     }
 
     public static ServerProcess standardDatabaseProcess() {
@@ -141,7 +149,7 @@ public class BenchmarkBase {
     }
 
     public static void main(String[] args) throws Exception {
-        new BenchmarkBase().thousandRequests("javaquarkus");
+        System.out.println(new BenchmarkBase().cpuSnapshot());
     }
 
 

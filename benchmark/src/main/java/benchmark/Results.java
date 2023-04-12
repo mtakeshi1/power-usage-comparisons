@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.LongStream;
 
-public record Results(String name, List<Duration> latencies, long energyUsageMicrojoules, Duration sampleDuration) {
+public record Results(String name, List<Duration> latencies, long energyUsageMicrojoules, Duration sampleDuration, CPUUsage usage) {
     public Results {
         Collections.sort(latencies);
     }
@@ -15,7 +15,7 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
     public Results subtractBaseline(long energyMicrojoules, Duration baselineDuration) {
         double baselinePowerUJsec = ((double) energyMicrojoules) / baselineDuration.toSeconds();
         long baselineEnergyUJ = (long) (sampleDuration.toSeconds() * baselinePowerUJsec);
-        return new Results(name, latencies, this.energyUsageMicrojoules() - baselineEnergyUJ, sampleDuration);
+        return new Results(name, latencies, this.energyUsageMicrojoules() - baselineEnergyUJ, sampleDuration, usage);
     }
 
     public double average() {
@@ -64,17 +64,19 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
     }
 
     public static String[] header() {
-        return "samples,duration,avg_lat,median_lat,p99_lat,max_lat,energy(J),avg_power(W),energy_per_req".split(",");
+        return "samples,duration,avg_lat,median_lat,p99_lat,max_lat,energy(J),avg_power(W),energy_per_req,cpu(user%),cpu(system%)".split(",");
     }
 
     public String[] toCSV() {
         NumberFormat instance = NumberFormat.getInstance(Locale.ROOT);
         instance.setMaximumFractionDigits(2);
+        instance.setMinimumFractionDigits(2);
         instance.setGroupingUsed(false);
 
         return new String[]{
                 String.valueOf(latencies.size()), String.valueOf(sampleDuration.toSeconds()), instance.format(average()), String.valueOf(median()),
-                String.valueOf(p99()), String.valueOf(max()), instance.format(energyJoules()), instance.format(energyJoules()), instance.format(joulesPerRequest())
+                String.valueOf(p99()), String.valueOf(max()), instance.format(energyJoules()), instance.format(energyJoules()), instance.format(joulesPerRequest()),
+                instance.format(usage.userPercentage()), instance.format(usage.systemPercentage())
         };
 
     }
