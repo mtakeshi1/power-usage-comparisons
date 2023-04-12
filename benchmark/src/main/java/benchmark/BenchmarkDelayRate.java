@@ -1,19 +1,18 @@
 package benchmark;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateInputParameters> {
 
-    private final String baseFolder = "results/" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
+    private final String baseFolder = "results/" + getClassName() + "-" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
     protected final boolean writeResults;
 
     public BenchmarkDelayRate(String host, boolean writeAllResults) {
@@ -23,6 +22,11 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
 
     public BenchmarkDelayRate() {
         this("localhost", false);
+    }
+
+    @Override
+    public File getBaseFolder() {
+        return new File(baseFolder);
     }
 
     public Map<String, Results> runAll(Duration testDuration, int numberOfClients, double requestPerSecond) throws Exception {
@@ -45,37 +49,84 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         return null;
     }
 
+
     public Results run(ServerProcess process, Duration testDuration, int numberOfClients, double requestPerSecond) throws IOException, InterruptedException {
         if (super.baselineEnergyUJoules == 0) {
             measureBaseline();
         }
-        System.out.printf("Starting %s with %d clients and %.2g reqs/sec for %ds%n", process.getName(), numberOfClients, requestPerSecond, testDuration.toSeconds());
-        ExecutorService pool = Executors.newFixedThreadPool(numberOfClients);
+        double expected = numberOfClients * testDuration.toSeconds() * requestPerSecond;
+        System.out.printf("Starting %s with %d clients and %.2f reqs/sec for %ds. Expected requests: %.2f %n", process.getName(), numberOfClients, requestPerSecond, testDuration.toSeconds(), expected);
+        int maxThreads = 32;
+        int minThreads = (int) Math.min(numberOfClients, numberOfClients * requestPerSecond);
+        ScheduledExecutorService pool = Executors.newScheduledThreadPool(Math.min(maxThreads, minThreads));
+        FileWriter writer;
+        FileWriter toClose = null;
         try (var ignored = getDatabaseProcess().start(); var ignored2 = process.start()) {
-            var cpu = cpuSnapshot();
-            List<Future<List<Duration>>> futures = new ArrayList<>(numberOfClients);
+            if (writeResults) {
+                File f = getBaseFolder();
+                if (!f.exists() && !f.mkdirs()) {
+                    throw new RuntimeException("could not create folder: " + f);
+                }
+                writer = new FileWriter(new File(f, "%s-%ds-%d-%.2f.txt".formatted(process.getName(), testDuration.toSeconds(), numberOfClients, requestPerSecond)));
+                toClose = writer;
+            } else {
+                writer = null;
+            }
+            List<ScheduledFuture<?>> futures = new ArrayList<>();
             RequestMaker maker = newRequestMaker(process);
+            CPUSnapshot snap = cpuSnapshot();
             long startJoules = maker.energyMeasureMicroJoules();
-            long deadLine = System.currentTimeMillis() + testDuration.toMillis();
+
             long period = (long) (1000 / requestPerSecond);
             long t0 = System.nanoTime();
+            List<Duration> latencies = new CopyOnWriteArrayList<>();
+            long deadline = System.nanoTime() + testDuration.toNanos();
             for (int i = 0; i < numberOfClients; i++) {
-                futures.add(pool.submit(() -> requestLoop(maker, deadLine, period)));
+                ScheduledFuture<?> fut = scheduleTask(pool, writer, maker, period, latencies, deadline);
+                futures.add(fut);
             }
-            List<Duration> latencies = new ArrayList<>();
+            TimeUnit.SECONDS.sleep(testDuration.toSeconds());
             for (var fut : futures) {
-                latencies.addAll(fut.get());
+                fut.cancel(false);
+//                latencies.addAll(fut.get());
+            }
+            for (var fut : futures) {
+                try {
+                    fut.get();
+                } catch (CancellationException ignored1) {
+                }
             }
             long totalEnergy = maker.energyMeasureMicroJoules() - startJoules;
             long totalTime = System.nanoTime() - t0;
-            System.out.printf("Finished %s with %d requests%n", process.getName(), latencies.size());
-            return new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime), cpuSnapshot().diffFrom(cpu)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
+            Results results = new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime), cpuSnapshot().diffFrom(snap)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
+            System.out.printf("Finished %s with %d requests and results: %s%n", process.getName(), latencies.size(), results);
+
+            return results;
         } catch (ExecutionException e) {
             throw new RuntimeException(e.getCause());
         } finally {
             pool.shutdownNow();
+            if (toClose != null) toClose.close();
         }
     }
+
+
+    protected ScheduledFuture<?> scheduleTask(ScheduledExecutorService pool, FileWriter writer, RequestMaker maker, long period, List<Duration> latencies, long deadline) {
+        return pool.scheduleWithFixedDelay(() -> {
+            if (System.nanoTime() <= deadline) {
+                try {
+                    Duration e = maker.makeRequest();
+                    if (System.nanoTime() <= deadline) {
+                        latencies.add(e);
+                        if (writer != null) writer.write(e.toMillis() + "\n");
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, 0, period, TimeUnit.MILLISECONDS);
+    }
+
 
     protected List<Duration> requestLoop(RequestMaker maker, long deadlineMillis, long periodMillis) throws IOException, InterruptedException {
         List<Duration> list = new ArrayList<>();
@@ -104,10 +155,12 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
     }
 
     public static void main(String[] args) throws Exception {
+        Locale.setDefault(Locale.ROOT);
         BenchmarkDelayRate rate = new BenchmarkDelayRate();
-        rate.disableBaseline();
+//        rate.disableBaseline();
+//        rate.redirectOutputs();
         String[] procNames = {"pythonjude", "javaquarkus"};
-        Duration testDuration = Duration.ofSeconds(60);
+        Duration testDuration = Duration.ofSeconds(120);
         List<RateInputParameters> list = new ArrayList<>();
         for (var proc : procNames) {
             int numberOfClients = 8;

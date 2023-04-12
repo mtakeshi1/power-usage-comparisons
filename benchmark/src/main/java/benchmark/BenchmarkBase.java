@@ -106,10 +106,12 @@ public class BenchmarkBase {
         System.out.println("Measuring baseline power draw");
         RequestMaker maker = newRequestMaker("baseline");
         try {
+            CPUSnapshot snapshot = cpuSnapshot();
             long initialJ = maker.energyMeasureMicroJoules();
             TimeUnit.NANOSECONDS.sleep(baselineMeasureDuration.toNanos());
             this.baselineEnergyUJoules = maker.energyMeasureMicroJoules() - initialJ;
-            System.out.printf("baseline power draw (W): %.2g%n", ((double) baselineEnergyUJoules/1_000_000) / baselineMeasureDuration.toSeconds());
+            CPUUsage cpuUsage = cpuSnapshot().diffFrom(snapshot);
+            System.out.printf("baseline power draw (W): %.2f, cpu usage: %.2f%% %n", ((double) baselineEnergyUJoules/1_000_000) / baselineMeasureDuration.toSeconds(), 100.0*cpuUsage.totalCPUUsagePercentage());
         } catch (Exception e) {
             throw new RuntimeException("could not stabilish baseline energy usage", e);
         }
