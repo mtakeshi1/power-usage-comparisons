@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  django:
+    container_name: products_django
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: products_db
+      DB_PORT: 5432
+      DB_NAME: public
+      DB_USER: root
+      DB_PASSWORD: root
+    networks:
+      - pg_network
+
+  postgres:
+    container_name: products_db
+    image: postgres
+    environment:
+      POSTGRES_DB: public
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    networks:
+      - pg_network
+    volumes:
+      - ./scripts/:/docker-entrypoint-initdb.d/
+
+networks:
+  pg_network:
+    driver: bridge
