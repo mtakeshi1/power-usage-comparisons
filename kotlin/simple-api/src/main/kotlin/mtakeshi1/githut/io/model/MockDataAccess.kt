@@ -6,7 +6,7 @@ object MockDataAccess : DataAccess {
 
     private val orders = mutableListOf<Models.ShoppingCart>()
 
-    override fun listProducts(): List<Models.Product> = products
+    override fun listProducts(): List<Models.SmallProduct> = products.map { Models.SmallProduct(it.id, it.name) }
 
     override fun productWithId(id: Int): Models.Product = products.filter { it.id == id }[0]
 

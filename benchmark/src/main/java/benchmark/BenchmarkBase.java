@@ -13,12 +13,13 @@ public class BenchmarkBase {
     protected final ServerProcess databaseProcess = standardDatabaseProcess();
 
     protected final ServerProcess[] variations = {
-//            quarkus(STANDARD_PORT),
-//            ruby(STANDARD_PORT),
-//            golang(STANDARD_PORT),
-//            node(STANDARD_PORT),
+            quarkus(STANDARD_PORT),
+            ruby(STANDARD_PORT),
+            golang(STANDARD_PORT),
+            node(STANDARD_PORT),
             django(STANDARD_PORT),
             jude(STANDARD_PORT),
+            kotlin(STANDARD_PORT),
     };
 
     private ServerProcess procStat = new ServerProcess("cpu", new String[] {"head", "-1", "/proc/stat"});
@@ -82,6 +83,10 @@ public class BenchmarkBase {
 
     public static ServerProcess node(int externalPort) {
         return ServerProcess.dockerProcess("node", "power/node", ".env", externalPort, 8080);
+    }
+
+    public static ServerProcess kotlin(int externalPort) {
+        return ServerProcess.dockerProcess("kotlin", "power/kotlin", ".env", externalPort, 8080);
     }
 
 

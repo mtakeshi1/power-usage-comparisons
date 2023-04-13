@@ -1,4 +1,4 @@
-all: go quarkus nodejs pythonjude pythondjango rails benchmarkcode pgsql
+all: go quarkus nodejs pythonjude pythondjango rails benchmarkcode pgsql kot
 
 go:
 	docker build -t power/golang golang/simple-rest/
@@ -24,3 +24,5 @@ pgsql:
 benchmarkcode:
 	+$(MAKE) -C benchmark
 
+kot:
+	+$(MAKE) -C kotlin/simple-api

@@ -1,0 +1,1 @@
+rootProject.name = "mtakeshi1.githut.io.simple-api"
