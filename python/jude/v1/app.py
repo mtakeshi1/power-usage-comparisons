@@ -1,12 +1,14 @@
 import dataclasses
 
 import psycopg_pool
+from psycopg.rows import dict_row
 import simplejson
 import os
 
 # --- APPLICATION CONTEXT -----------------------------------------------------
 connection_string = os.getenv("DB_CONNECTION_STRING")
-pool = psycopg_pool.NullConnectionPool(connection_string)
+pool = psycopg_pool.ConnectionPool(connection_string, open=False, min_size=1, num_workers=1)
+pool.open(wait=True)
 
 # --- HTTP WEB RESOURCE -------------------------------------------------------
 status_map = {
@@ -18,59 +20,42 @@ status_map = {
 }
 
 
-def not_found(environ, headers, connection):
+def not_found(environ, headers):
     return None, 404
 
 
-def new_order(environ, headers, connection):
-    entries = simplejson.load(environ.get('wsgi.input'))
-    entries = list(
-        (int(entry['productId']), int(entry['amount']))
-        for entry in entries
-    )
+def new_order(environ, headers):
+    with pool.connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT "
+                "id, price "
+                "FROM public.product "
+            )
+            product_record = {
+                rec[0]: rec[1]
+                for rec in cursor.fetchall()
+            }
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT "
-            "id, price "
-            "FROM public.product "
+        entries_record = simplejson.load(environ.get('wsgi.input'))
+        total = sum(
+            entry['amount'] * product_record[entry['productId']]
+            for entry in entries_record
         )
-        products = cursor.fetchall()
 
-    products = {
-        product_information[0]: product_information[1]
-        for product_information in products
-    }
-
-    total = 0.
-    for entry_id, entry_amount in entries:
-        if entry_id not in products:
-            raise ValueError
-        else:
-            product_price = products[entry_id]
-            total += product_price*entry_amount
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO public.shoppingcart "
-            "(total) "
-            "VALUES "
-            "(%s) "
-            "RETURNING id",
-            params=[total]
-        )
-        order_id, = cursor.fetchone()
-        entries = list(
-            [order_id, product_id, amount]
-            for product_id, amount in entries
-        )
-        cursor.executemany(
-            "INSERT INTO public.productorder "
-            "(shoppingcart_id, product_id, amount) "
-            "values "
-            "(%s, %s, %s)",
-            params_seq=entries
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO public.shoppingcart "
+                "(total) "
+                "VALUES "
+                "(%s) "
+                "RETURNING id",
+                params=[total]
+            )
+            order_id, = cursor.fetchone()
+            with cursor.copy("COPY public.productorder (shoppingcart_id, product_id, amount) FROM STDIN") as copy:
+                for entry in entries_record:
+                    copy.write_row((order_id, entry['productId'], entry['amount']))
 
     headers.append(('Content-Type', 'application/json'))
     return simplejson.dumps(order_id), 201
@@ -80,44 +65,35 @@ def new_order(environ, headers, connection):
 class ViewProduct:
     id: str
 
-    def __call__(self, environ, headers, connection):
+    def __call__(self, environ, headers):
         id = int(self.id)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT "
-                "name, price, description "
-                "FROM public.product "
-                "where id=%s",
-                params=[id]
-            )
-            product = cursor.fetchone()
+        with pool.connection() as connection:
+            connection.autocommit = True
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    "SELECT "
+                    "id, name, price, description "
+                    "FROM public.product "
+                    "where id=%s",
+                    params=[id]
+                )
+                product = cursor.fetchone()
 
-        product = dict(
-            id=id,
-            name=product[0],
-            price=product[1],
-            description=product[2]
-        )
         headers.append(('Content-Type', 'application/json'))
         return simplejson.dumps(product), 200
 
 
-def view_product_information(environ, headers, connection):
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT "
-            "id, name "
-            "FROM public.product "
-        )
-        products = cursor.fetchall()
+def view_product_information(environ, headers):
+    with pool.connection() as connection:
+        connection.autocommit = True
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                "SELECT "
+                "id, name "
+                "FROM public.product "
+            )
+            products = cursor.fetchall()
 
-    products = list(
-        dict(
-            id=product[0],
-            name=product[1]
-        )
-        for product in products
-    )
     headers.append(('Content-Type', 'application/json'))
     return simplejson.dumps(products), 200
 
@@ -126,25 +102,30 @@ def view_product_information(environ, headers, connection):
 class ViewOrder:
     id: str
 
-    def __call__(self, environ, headers, connection):
+    def __call__(self, environ, headers):
         id = int(self.id)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT "
-                "total "
-                "FROM public.shoppingcart "
-                "WHERE id=%s",
-                params=[id]
-            )
-            total, = cursor.fetchone()
-            cursor.execute(
-                "SELECT "
-                "amount, product_id "
-                "from public.productorder "
-                "where shoppingcart_id=%s",
-                params=[id]
-            )
-            order_entries = cursor.fetchall()
+        with pool.connection() as connection:
+            connection.autocommit = True
+            with connection.pipeline():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT "
+                        "total "
+                        "FROM public.shoppingcart "
+                        "WHERE id=%s",
+                        params=[id]
+                    )
+                    cursor.execute(
+                        "SELECT "
+                        "amount, product_id "
+                        "from public.productorder "
+                        "where shoppingcart_id=%s",
+                        params=[id]
+                    )
+
+                    total, = cursor.fetchone()
+                    cursor.nextset()
+                    order_entries = cursor.fetchall()
 
         headers.append(('Content-Type', 'application/json'))
         return simplejson.dumps(dict(
@@ -152,10 +133,10 @@ class ViewOrder:
             total=total,
             items=list(
                 dict(
-                    productId=entry[1],
-                    amount=entry[0]
+                    amount=record[0],
+                    productId=record[1]
                 )
-                for entry in order_entries
+                for record in order_entries
             )
         )), 200
 
@@ -188,11 +169,7 @@ def create(environ, start_response):
         segments = [segment for segment, _ in zip(segments, range(5))]
         resource = resource_of(segments)
 
-        with pool.connection() as connection:
-            data, status = resource(environ, response_headers, connection)
-    except ValueError as e:
-        data = str(e)
-        status = 400
+        data, status = resource(environ, response_headers)
     except Exception as e:
         data = str(e)
         status = 500
