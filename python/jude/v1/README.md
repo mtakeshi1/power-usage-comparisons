@@ -2,14 +2,7 @@
 
 Python implementation, using raw materials.
 
-My will behind this stack, is tocompare raw WSGI application that are essentially single-threaded.
-The WSGI protocol is the de facto standard protocol for Python web applications, and compared to Java equivalent standard API.
-It is an extension of the well-known and older CGI protocol.
-
-Having process/worker based archictecture is common in the Pyton ecosystem, and delivers different
-advantages like simplicity (you don't have to wonder about thread-safety, especially when using connection pools; you don't
-have to wonder about context-switch and cache flush, ...) but also comes with a bunch of limitations
-(for IO operations, it might not be the most efficient).
+My will behind this stack, is to compare raw WSGI application that are essentially single-threaded.
 
 The stack uses GUnicorn directly, as a translator between HTTP and WSGI.
 It uses Psycopg as connector to the database.
@@ -53,19 +46,6 @@ make test-schenario
 
 # Further work
 
-## Pipeline mode
-
-The Docker image we are based on, only support `libpq` library version 13.9.
-Therefore, we cannot make use of Postgres **pipeline** mode. Having the mode activated could
-reduce some of the operations in the code.
-
-## Install is not production ready
-
-The author of `psycopg` insists that for a production-ready release, we should build the
-library ourselves. We did not.
-
-Similarly, `simplejson` might be misused.
-
 ## Use of better data structures?
 
 Some of the computations (especially merging collected information) are written in plain Python.
@@ -75,9 +55,7 @@ as NumPy objects. This can be more than interesting to work on.
 
 ## JIT or compilation
 
-Another possible direction toward optimisation, could be to integrate a JIT like Numba,
-or else an AOT compiler (still Numba) or another compilation technique like Cython.
+It is currently impossible to have Numba JIT or AOT compilation in Python 3.11.
 
-This could be achieved very locally, on the router part for example. It does not have to
-affect all the implementations.
+We have not explored the benefit of Cython, but maybe the routing part could be optimised further.
 
