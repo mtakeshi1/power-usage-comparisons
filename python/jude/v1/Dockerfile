@@ -11,8 +11,10 @@ RUN apt-get install python3.11-dev -y
 RUN apt-get install curl -y
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 
-
 COPY requirements.txt .
 RUN pip install -r requirements.txt
+
+COPY app.conf.py .
+COPY app.py .
 
 CMD ["gunicorn", "--config=app.conf.py", "app:create"]
