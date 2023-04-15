@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:kinetic
 
 ENV DB_CONNECTION_STRING=???LOL???
 
