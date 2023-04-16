@@ -17,8 +17,13 @@ public interface Benchmark<IN extends InputParameters> {
         String[] header = append(inputs.get(0).headers(), Results.header());
         List<String[]> rows = new ArrayList<>();
         for (var in : inputs) {
-            var res = run(in);
-            rows.add(append(in.toCSV(), res.toCSV()));
+            try {
+                var res = run(in);
+                rows.add(append(in.toCSV(), res.toCSV()));
+            } catch (Exception e) {
+                System.err.println("Error running " + in);
+                e.printStackTrace();
+            }
         }
         return formatCSV(header, rows);
     }
@@ -71,13 +76,63 @@ public interface Benchmark<IN extends InputParameters> {
         return csv;
     }
 
+    class TeeOutputStream extends OutputStream {
+
+        private final OutputStream one;
+
+        private final OutputStream two;
+
+        public TeeOutputStream(OutputStream one, OutputStream two) {
+            this.one = one;
+            this.two = two;
+        }
+
+
+        @Override
+        public void write(byte[] b) throws IOException {
+            one.write(b);
+            two.write(b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            one.write(b, off, len);
+            two.write(b, off, len);
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            one.write(b);
+            two.write(b);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            one.flush();
+            two.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                one.close();
+            } finally {
+                two.close();
+            }
+        }
+    }
+
+    default PrintStream combineAutoFlush(OutputStream one, OutputStream two) {
+        return new PrintStream(new TeeOutputStream(one, two), true);
+    }
+
     default void redirectOutputs() throws IOException {
         File f = getBaseFolder();
         if (!f.exists() && !f.mkdirs()) {
             throw new RuntimeException("could not create folder: " + f);
         }
-        System.setOut(new PrintStream(new FileOutputStream(new File(f, "stdout.log")), true));
-        System.setErr(new PrintStream(new FileOutputStream(new File(f, "stderr.log")), true));
+        System.setOut(combineAutoFlush(System.out, new FileOutputStream(new File(f, "stdout.log"))));
+        System.setErr(combineAutoFlush(System.err, new FileOutputStream(new File(f, "stderr.log"))));
     }
 
     File getBaseFolder();
