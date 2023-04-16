@@ -2,7 +2,7 @@ import dataclasses
 
 import psycopg_pool
 from psycopg.rows import dict_row
-import simplejson
+import rapidjson
 import os
 
 # --- APPLICATION CONTEXT -----------------------------------------------------
@@ -37,7 +37,7 @@ def new_order(environ, headers):
                 for rec in cursor.fetchall()
             }
 
-        entries_record = simplejson.load(environ.get('wsgi.input'))
+        entries_record = rapidjson.load(environ.get('wsgi.input'))
         total = sum(
             entry['amount'] * product_record[entry['productId']]
             for entry in entries_record
@@ -58,7 +58,7 @@ def new_order(environ, headers):
                     copy.write_row((order_id, entry['productId'], entry['amount']))
 
     headers.append(('Content-Type', 'application/json'))
-    return simplejson.dumps(order_id), 201
+    return rapidjson.dumps(order_id), 201
 
 
 @dataclasses.dataclass(frozen=True)
@@ -80,7 +80,7 @@ class ViewProduct:
                 product = cursor.fetchone()
 
         headers.append(('Content-Type', 'application/json'))
-        return simplejson.dumps(product), 200
+        return rapidjson.dumps(product), 200
 
 
 def view_product_information(environ, headers):
@@ -95,7 +95,7 @@ def view_product_information(environ, headers):
             products = cursor.fetchall()
 
     headers.append(('Content-Type', 'application/json'))
-    return simplejson.dumps(products), 200
+    return rapidjson.dumps(products), 200
 
 
 @dataclasses.dataclass(frozen=True)
@@ -128,7 +128,7 @@ class ViewOrder:
                     order_entries = cursor.fetchall()
 
         headers.append(('Content-Type', 'application/json'))
-        return simplejson.dumps(dict(
+        return rapidjson.dumps(dict(
             id=id,
             total=total,
             items=list(
@@ -142,33 +142,33 @@ class ViewOrder:
 
 
 # --- APPLICATION -------------------------------------------------------------
-def resource_of(segments):
-    first, *segments = segments
-    if first == 'products':
-        if segments:
-            first, *segments = segments
-            return ViewProduct(id=first)
-        else:
-            return view_product_information
-    elif first == 'orders' and segments:
-        first, *segments = segments
-        if first == 'new':
-            return new_order
-        else:
-            return ViewOrder(id=first)
-
+def resource_of(environ):
+    segments = environ.get('PATH_INFO').split('/')
+    segments = (seg for seg, _ in zip(
+        (segment for segment in segments if segment != ''),
+        range(5)
+    ))
+    try:
+        cursor = next(segments)
+        if cursor == 'products':
+            try:
+                return ViewProduct(id=next(segments))
+            except StopIteration:
+                return view_product_information
+        elif cursor == 'orders':
+            cursor = next(segments)
+            if cursor == 'new':
+                return new_order
+            else:
+                return ViewOrder(id=cursor)
+    except StopIteration: pass
     return not_found
 
 
 def create(environ, start_response):
     response_headers = list()
     try:
-        url = environ.get('PATH_INFO')
-        segments = url.split('/')
-        segments = (segment for segment in segments if segment != '')
-        segments = [segment for segment, _ in zip(segments, range(5))]
-        resource = resource_of(segments)
-
+        resource = resource_of(environ)
         data, status = resource(environ, response_headers)
     except Exception as e:
         data = str(e)

@@ -1,4 +1,4 @@
 psycopg[c]
 psycopg-pool
-simplejson
+python-rapidjson
 gunicorn

@@ -54,13 +54,33 @@ as NumPy objects. This can be more than interesting to work on.
 
 ## JIT or compilation
 
-It is currently impossible to have Numba JIT or AOT compilation in Python 3.11.
+It is currently impossible to have Numba JIT or AOT compilation in Python 3.11
+(see https://numba.readthedocs.io/en/stable/user/installing.html and Github issue
+https://github.com/numba/numba/issues/8304).
 
-We have not explored the benefit of Cython, but maybe the routing part could be optimised further,
-as it is mainly a branching on strings that follow a specific protocol. An approach could
-be to replace all occurrences of `/` by the `NUL` C-character. This can allow
-C-like iteration on every segment of the string. It would then be sufficient to
-return the Python object and exit Cython realm.
+See also (https://docs.python.org/3/whatsnew/3.11.html and references therein,
+for a detailed view about what is new in CPython 3.11 support).
+
+## Stronger interplay with JSON
+
+The implementation now uses RapidJSON (https://rapidjson.org/index.html)
+as JSON library. We use the library by using the standard Python's wrapper of it
+(see https://pypi.org/project/python-rapidjson/). We have not investigated the
+gain we could have in working directly in Cython for our use cases, without
+relying on a generic wrapper library.
+
+## Asynchronous handling
+
+According to GUnicorn documentation, the use of `sync` worker mode
+is highly discouraged when there is no reverse proxy in front of the application.
+In a real world scenario, we should either modify the worker class,
+or modify the architecture.
+
+It has to be noted that current state of `psycopg3` does not allow anymore interplay
+with `gevent` and `eventlet`.
+
+Another completely different approach, could be to rely on a ASGI framework
+like `Starlette`. Wehave not investigated this possibility.
 
 # A word on the paradigm
 
