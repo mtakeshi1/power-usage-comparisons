@@ -1,16 +1,17 @@
 import dataclasses
+import typing
 
 import psycopg_pool
 from psycopg.rows import dict_row
 import rapidjson
 import os
 
-# --- APPLICATION CONTEXT -----------------------------------------------------
+# --- APPLICATION GLOBAL CONTEXT ----------------------------------------------
 connection_string = os.getenv("DB_CONNECTION_STRING")
 pool = psycopg_pool.ConnectionPool(connection_string, open=False, min_size=1, num_workers=1)
 pool.open(wait=True)
 
-# --- HTTP WEB RESOURCE -------------------------------------------------------
+# --- APPLICATION GLOBAL PROTOCOLS --------------------------------------------
 status_map = {
     200: "OK",
     201: "Created",
@@ -19,30 +20,49 @@ status_map = {
     500: "Internal Server Error"
 }
 
+HEADERS_LIST = typing.List[typing.Tuple[str, str]]
+WSGI_ENVIRON = typing.Dict[str, object]
+CONNECTION_POOL = psycopg_pool.ConnectionPool
 
-def not_found(environ, headers):
+HTTP_ENTITY_ANSWER = typing.Union[
+    typing.Tuple[None, typing.Literal[404]],
+    typing.Tuple[str, typing.Literal[200, 201]]
+]
+
+
+class HTTP_ENTITY(typing.Protocol):
+    def __call__(self, environ: WSGI_ENVIRON, headers: HEADERS_LIST, pool: CONNECTION_POOL) -> HTTP_ENTITY_ANSWER:
+        ...
+
+
+# --- HTTP ENTITIES -----------------------------------------------------------
+def not_found(environ: WSGI_ENVIRON, headers: HEADERS_LIST, pool: CONNECTION_POOL) -> HTTP_ENTITY_ANSWER:
     return None, 404
 
 
-def new_order(environ, headers):
+def new_order(environ: WSGI_ENVIRON, headers: HEADERS_LIST, pool: CONNECTION_POOL) -> HTTP_ENTITY_ANSWER:
     with pool.connection() as connection:
+        connection.autocommit = True
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT "
                 "id, price "
                 "FROM public.product "
             )
-            product_record = {
-                rec[0]: rec[1]
-                for rec in cursor.fetchall()
-            }
+            product_records = cursor.fetchall()
 
-        entries_record = rapidjson.load(environ.get('wsgi.input'))
-        total = sum(
-            entry['amount'] * product_record[entry['productId']]
-            for entry in entries_record
-        )
+    product_records = {
+        rec[0]: rec[1]
+        for rec in product_records
+    }
+    entries_record = rapidjson.load(environ.get('wsgi.input'))
+    total = sum(
+        entry['amount'] * product_records[entry['productId']]
+        for entry in entries_record
+    )
+    del product_records
 
+    with pool.connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO public.shoppingcart "
@@ -65,7 +85,7 @@ def new_order(environ, headers):
 class ViewProduct:
     id: str
 
-    def __call__(self, environ, headers):
+    def __call__(self, environ: WSGI_ENVIRON, headers: HEADERS_LIST, pool: CONNECTION_POOL) -> HTTP_ENTITY_ANSWER:
         id = int(self.id)
         with pool.connection() as connection:
             connection.autocommit = True
@@ -83,7 +103,7 @@ class ViewProduct:
         return rapidjson.dumps(product), 200
 
 
-def view_product_information(environ, headers):
+def view_product_information(environ: WSGI_ENVIRON, headers: HEADERS_LIST, protocol: CONNECTION_POOL) -> HTTP_ENTITY_ANSWER:
     with pool.connection() as connection:
         connection.autocommit = True
         with connection.cursor(row_factory=dict_row) as cursor:
@@ -102,7 +122,7 @@ def view_product_information(environ, headers):
 class ViewOrder:
     id: str
 
-    def __call__(self, environ, headers):
+    def __call__(self, environ: WSGI_ENVIRON, headers: HEADERS_LIST, pool: CONNECTION_POOL) -> HTTP_ENTITY_ANSWER:
         id = int(self.id)
         with pool.connection() as connection:
             connection.autocommit = True
@@ -142,12 +162,15 @@ class ViewOrder:
 
 
 # --- APPLICATION -------------------------------------------------------------
-def resource_of(environ):
-    segments = environ.get('PATH_INFO').split('/')
-    segments = (seg for seg, _ in zip(
+def url_segments(environ: WSGI_ENVIRON) -> typing.Iterator[str]:
+    segments = str(environ.get('PATH_INFO')).split('/')
+    return (seg for seg, _ in zip(
         (segment for segment in segments if segment != ''),
         range(5)
     ))
+
+def resource_of(environ: WSGI_ENVIRON) -> HTTP_ENTITY:
+    segments = url_segments(environ)
     try:
         cursor = next(segments)
         if cursor == 'products':
@@ -167,12 +190,14 @@ def resource_of(environ):
 
 def create(environ, start_response):
     response_headers = list()
+    data = None
     try:
         resource = resource_of(environ)
-        data, status = resource(environ, response_headers)
-    except Exception as e:
-        data = str(e)
+        data, status = resource(environ, response_headers, pool)
+    except psycopg.Error as db_error:
         status = 500
+    except Exception as e:
+        status = 400
 
     status = "{} {}".format(status, status_map[status])
     if data is None:
