@@ -10,7 +10,6 @@ db:
 serve:
 	docker run --rm \
 	-e DB_CONNECTION_STRING=postgresql://myself:mysafepassword@THE-HOST:5432/mydatabase \
-	-v ${PWD}:/usr/app \
 	-p 8000:8000 \
 	--name takeshi-app \
 	powerjudev1
