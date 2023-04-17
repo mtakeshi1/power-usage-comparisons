@@ -15,6 +15,21 @@ services:
     volumes:
       - ./scripts/:/docker-entrypoint-initdb.d/
 
+  app:
+    container_name: axum_diesel
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgres://root:root@products_db/public
+    networks:
+      - pg_network
+
 networks:
   pg_network:
     driver: bridge

@@ -3,7 +3,7 @@ Accept: application/json
 
 ###
 
-GET http://localhost:8080/products/99
+GET http://localhost:8080/products/1
 Accept: application/json
 
 ###
@@ -29,3 +29,10 @@ Content-Type: application/json
     "amount": 2
   }
 ]
+
+###
+
+GET http://localhost:8080/orders/1
+Accept: application/json
+
+###
