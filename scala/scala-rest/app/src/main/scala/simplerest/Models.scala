@@ -8,6 +8,6 @@ object Models {
 
   case class ShoppingCart(id: Int, total: Double, entries: List[ShoppingCartEntry])
 
-  case class ShoppingCartEntry(id: Int, cart: ShoppingCart, product: Product, amount: Int)
+  case class ShoppingCartEntry(productId: Int, amount: Int)
 
 }
