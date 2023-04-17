@@ -11,4 +11,7 @@ COPY api/ /power/api/
 
 RUN npm install
 COPY .env /power/
+
+EXPOSE 8080
+
 CMD npm run start

@@ -7,7 +7,7 @@ const createProductService = require('./api/service/product.service');
 const createOrderService = require('./api/service/order.service');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 8080;
 app.use(bodyParser.json());
 
 const pgHost = process.env.PG_HOST || "localhost";

@@ -17,4 +17,6 @@ RUN pip install -r requirements.txt
 COPY app.conf.py .
 COPY app.py .
 
+EXPOSE 8000
+
 CMD ["gunicorn", "--config=app.conf.py", "app:create"]
