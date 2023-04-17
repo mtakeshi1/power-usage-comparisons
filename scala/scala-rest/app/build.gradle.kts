@@ -19,6 +19,15 @@ repositories {
     mavenCentral()
 }
 
+buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.github.johnrengelman:shadow:8.1.1")
+    }
+}
+
 dependencies {
     implementation("org.scala-lang:scala3-library_3:3.2.2")
 //    implementation ("org.tpolecat:skunk-core_2.13:0.5.1")
@@ -29,6 +38,7 @@ dependencies {
     implementation("io.circe:circe-core_3:0.15.0-M1")
     implementation("org.http4s:http4s-circe_3:1.0.0-M39")
     implementation("org.tpolecat:skunk-core_3:0.5.1")
+    implementation("ch.qos.logback:logback-classic:1.4.6")
 //    implementation("tf.tofu:derevo-cats_2.13:0.13.0")
     // Use Scalatest for testing our library
     testImplementation("junit:junit:4.13.2")
@@ -38,3 +48,13 @@ application {
     // Define the main class for the application.
     mainClass.set("simplerest.Main")
 }
+
+tasks.register<Jar>("fatJar") {
+    manifest {
+        attributes["Main-Class"] = "simplerest.Main"
+    }
+    archiveBaseName.set("scala-rest.jar")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath)
+}
+apply { plugin("com.github.johnrengelman.shadow") }

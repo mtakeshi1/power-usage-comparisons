@@ -1,4 +1,4 @@
-all: go quarkus nodejs pythonjude pythondjango rails benchmarkcode pgsql kot
+all: go quarkus nodejs pythonjude pythondjango rails benchmarkcode pgsql kot rustaxum pythonjudev2 scalaio
 
 go:
 	docker build -t power/golang golang/simple-rest/
@@ -11,6 +11,9 @@ nodejs:
 
 pythonjude:
 	docker build -t power/jude python/jude/v1/
+
+pythonjudev2:
+	docker build -t power/judev2 python/jude/v2/
 
 pythondjango:
 	docker build -t power/django python/django_rest/
@@ -26,3 +29,9 @@ benchmarkcode:
 
 kot:
 	+$(MAKE) -C kotlin/simple-api
+
+rustaxum:
+	docker build -t power/rust rust/axum_diesel/
+
+scalaio:
+	+$(MAKE) -C scala/scala-rest
