@@ -53,7 +53,7 @@ object Main {
       for {
         entries <- req.as[List[Models.ShoppingCartEntry]]
         order <- access.newOrder(entries)
-        resp <- Ok(s"$order.id")
+        resp <- Ok(s"${order.id}")
       } yield resp
   }
 

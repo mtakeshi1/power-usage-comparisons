@@ -34,8 +34,8 @@ class SkunkDataAccess(val host: String, val user: String, val pwd: String, val d
       }}}
   }
 
-  val insertMany: Command[List[Int ~ Int ~ Int]] = {
-    val pars = (int4 ~ int4 ~ int4).values.list(3)
+  def insertMany(n: Int): Command[List[Int ~ Int ~ Int]] = {
+    val pars = (int4 ~ int4 ~ int4).values.list(n)
     sql"insert into productorder(amount, product_id, shoppingcart_id) values $pars".command
   }
 
@@ -44,12 +44,12 @@ class SkunkDataAccess(val host: String, val user: String, val pwd: String, val d
   override def newOrder(items: List[Models.ShoppingCartEntry]): IO[Models.ShoppingCart] = {
     pool.use {
       _.use { session =>
-        session.transaction.use { tx =>
+        session.transaction.use { _ =>
           for {
             prods <- items.map(i => productWithId(i.productId).map(prod => (prod, i.amount))).sequence
             total = prods.map(t => t._2 * t._1.price).sum
             orderId <- session.unique(insertOrderCmd, total)
-            _ <- session.execute(insertMany, items.map(spe => spe.amount ~ spe.productId ~ orderId))
+            _ <- session.execute(insertMany(items.size), items.map(spe => spe.amount ~ spe.productId ~ orderId))
           } yield Models.ShoppingCart(orderId, total, items)
         }
       }
