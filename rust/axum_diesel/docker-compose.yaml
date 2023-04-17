@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  postgres:
+    container_name: products_db
+    image: postgres
+    environment:
+      POSTGRES_DB: public
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    networks:
+      - pg_network
+    volumes:
+      - ./scripts/:/docker-entrypoint-initdb.d/
+
+networks:
+  pg_network:
+    driver: bridge

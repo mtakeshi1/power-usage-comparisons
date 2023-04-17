@@ -1,0 +1,31 @@
+GET localhost:8080/products HTTP/1.1
+Accept: application/json
+
+###
+
+GET http://localhost:8080/products/99
+Accept: application/json
+
+###
+
+POST localhost:8080/orders/new HTTP/1.1
+Content-Type: application/json
+
+[
+  {
+    "productId": 1,
+    "amount": 1
+  },
+  {
+    "productId": 2,
+    "amount": 3
+  },
+  {
+    "productId": 3,
+    "amount": 2
+  },
+  {
+    "productId": 4,
+    "amount": 2
+  }
+]
