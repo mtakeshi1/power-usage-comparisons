@@ -15,7 +15,7 @@ pub mod orders_repository;
 pub struct ConnectionPool(Pool<ConnectionManager<PgConnection>>);
 
 pub fn establish_connection() -> ConnectionPool {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = env::var("DB_CONNECTION_STRING").expect("DB_CONNECTION_STRING must be set");
     let max_pool_size = env::var("MAX_POOL_SIZE").unwrap_or("10".to_string());
 
     let manager = ConnectionManager::<PgConnection>::new(database_url);
