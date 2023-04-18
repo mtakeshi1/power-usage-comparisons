@@ -37,7 +37,7 @@ async fn main() {
         .layer(middleware::map_response(log_error))
         .with_state(app_state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     tracing::info!("Server started on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
