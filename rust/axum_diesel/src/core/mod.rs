@@ -51,6 +51,19 @@ impl OrderService {
         self.order_repository.create_order(order, total).await
     }
 
+    pub async fn create_order_slow(&self, order: Vec<ProductAmount>) -> Result<NewOrder> {
+        let mut total = 0f64;
+        for entry in &order {
+            if let Some(product) = self.product_repository.get_product(entry.product_id).await? {
+                total += entry.amount as f64 * product.price;
+            } else {
+                return Err(ProductNotFound { id: entry.product_id });
+            }
+        }
+
+        self.order_repository.create_order(order, total).await
+    }
+
     pub async fn get_order(&self, id: i32) -> Result<ShoppingCart> {
         self.order_repository.get_order(id).await
     }
