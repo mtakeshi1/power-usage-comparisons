@@ -16,7 +16,7 @@ use crate::AppState;
 use crate::core::{OrderService, ProductService};
 use crate::core::error::ServiceError;
 use crate::core::error::ServiceError::ProductNotFound;
-use crate::core::models::{NewOrder, Product, ProductAmount, ProductInfo};
+use crate::core::models::{Product, ProductAmount, ProductInfo};
 use crate::core::Result;
 
 pub fn product_routes() -> Router<AppState, Body> {
@@ -56,8 +56,8 @@ async fn product_get(
 async fn new_order(
     State(order_service): State<OrderService>,
     Json(order): Json<Vec<ProductAmount>>,
-) -> Result<Json<NewOrder>> {
-    Ok(Json(order_service.create_order(order).await?))
+) -> Result<String> {
+    Ok(order_service.create_order_slow(order).await?.id.to_string())
 }
 
 #[derive(Serialize, Debug)]
