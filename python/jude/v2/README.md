@@ -28,7 +28,7 @@ https://www.psycopg.org/psycopg3/docs/api/connections.html
 
 In root folder:
 ```
-docker build -t powerjudev1 .
+docker build -t powerjudev2 .
 ```
 
 Running the image assumes you have a valid available
@@ -40,7 +40,7 @@ docker run --rm \
 -e DB_CONNECTION_STRING=postgresql://myself:mysafepassword@host:5432/mydatabase \
 -p 8000:8000 \
 --name takeshi-app \
-powerjudev1
+powerjudev2
 ```
 
 You can use the shortcuts in the `Makefile`.

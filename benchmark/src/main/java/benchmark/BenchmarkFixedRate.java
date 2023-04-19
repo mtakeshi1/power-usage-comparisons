@@ -42,7 +42,7 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
         BenchmarkFixedRate rate = new BenchmarkFixedRate("localhost", true);
 //        rate.disableBaseline();
         rate.redirectOutputs();
-        List<String> procNames = Arrays.asList("pythonjude", "javaquarkus", "ruby", "golang", "node");
+        List<String> procNames = Arrays.asList("pythonjudev2", "javaquarkus", "ruby", "golang", "node");
         Collections.shuffle(procNames);
         Duration testDuration = Duration.ofSeconds(180);
         List<RateInputParameters> list = new ArrayList<>();
