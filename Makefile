@@ -1,4 +1,4 @@
-all: go quarkus nodejs pythondjango rails benchmarkcode pgsql kot rustaxum pythonjudev2 scalaio
+all: go quarkus nodejs pythondjango rails benchmarkcode pgsql kot rustaxum pythonjudev2 pythonjudev3 scalaio
 
 go:
 	docker build -t power/golang golang/simple-rest/
@@ -11,6 +11,9 @@ nodejs:
 
 pythonjudev2:
 	docker build -t power/judev2 python/jude/v2/
+
+pythonjudev3:
+	docker build -t power/judev3 python/jude/v3/
 
 pythondjango:
 	docker build -t power/django python/django_rest/
