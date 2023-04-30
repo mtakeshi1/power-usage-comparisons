@@ -45,7 +45,7 @@ public class ServerProcess {
                 }
             }
         });
-        if (!process.waitFor(1, TimeUnit.SECONDS)) {
+        if (!process.waitFor(5, TimeUnit.SECONDS)) {
             throw new RuntimeException("head -1 /proc/stat did not finish within 1 sec. Err: " + new String(process.getErrorStream().readAllBytes()));
         }
         return new String(process.getInputStream().readAllBytes());

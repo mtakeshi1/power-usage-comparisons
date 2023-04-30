@@ -1,9 +1,7 @@
 package benchmark;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public interface Benchmark<IN extends InputParameters> {
 
@@ -14,20 +12,30 @@ public interface Benchmark<IN extends InputParameters> {
     }
 
     default String runFormatCSV(List<IN> inputs) {
+        return runFormatCSV(inputs, false);
+    }
+
+    default String runFormatCSV(List<IN> inputs, boolean randomize) {
         String[] header = append(inputs.get(0).headers(), Results.header());
-        List<String[]> rows = new ArrayList<>();
-        for (var in : inputs) {
+        Map<IN, String[]> sortedResults = new LinkedHashMap<>();
+        List<IN> modified = new ArrayList<>(inputs);
+        if (randomize) Collections.shuffle(modified);
+        for (var in : modified) {
             try {
                 var res = run(in);
-                rows.add(append(in.toCSV(), res.toCSV()));
+                sortedResults.put(in, append(in.toCSV(), res.toCSV()));
             } catch (Exception e) {
                 System.err.println("Error running " + in);
                 e.printStackTrace();
             }
         }
+        List<String[]> rows = new ArrayList<>();
+        for (var in : inputs) {
+            String[] r = sortedResults.get(in);
+            if (r != null) rows.add(r);
+        }
         return formatCSV(header, rows);
     }
-
 
     default String formatCSV(String[] header, List<String[]> rows) {
         int[] maxCols = Arrays.stream(header).mapToInt(String::length).toArray();
@@ -62,7 +70,7 @@ public interface Benchmark<IN extends InputParameters> {
     }
 
     default String runAllWriteResults(List<IN> inputs) throws IOException {
-        String csv = runFormatCSV(inputs);
+        String csv = runFormatCSV(inputs, true);
         File f = getBaseFolder();
         if (!f.exists() && !f.mkdirs()) {
             throw new RuntimeException("could not create folder: " + f);
@@ -126,13 +134,16 @@ public interface Benchmark<IN extends InputParameters> {
         return new PrintStream(new TeeOutputStream(one, two), true);
     }
 
+    PrintStream originalOut = System.out;
+    PrintStream originalErr = System.out;
+
     default void redirectOutputs() throws IOException {
         File f = getBaseFolder();
         if (!f.exists() && !f.mkdirs()) {
             throw new RuntimeException("could not create folder: " + f);
         }
-        System.setOut(combineAutoFlush(System.out, new FileOutputStream(new File(f, "stdout.log"))));
-        System.setErr(combineAutoFlush(System.err, new FileOutputStream(new File(f, "stderr.log"))));
+        System.setOut(combineAutoFlush(originalOut, new FileOutputStream(new File(f, "stdout.log"))));
+        System.setErr(combineAutoFlush(originalErr, new FileOutputStream(new File(f, "stderr.log"))));
     }
 
     File getBaseFolder();

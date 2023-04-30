@@ -54,9 +54,9 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
 
     @Override
     public String toString() {
-        return "%s, samples=%d, duration(secs)=%d, avg latency=%.2g, median latency=%d, p99 latency=%d, max latency: %d, energy(joules)=%g, avg_power_draw(w): %.2g, joules per request: %.2g"
+        return "%s, samples=%d, duration(secs)=%d, avg latency=%.2f, median latency=%d, p99 latency=%d, max latency: %d, energy(joules)=%f, avg_power_draw(w): %.2f, milijoules per request: %.2f"
                 .formatted(name, latencies.size(), sampleDuration.toSeconds(), average(), median(), p99(),
-                        max(), energyJoules(), powerWatt(), joulesPerRequest());
+                        max(), energyJoules(), powerWatt(), 1000.0*joulesPerRequest());
     }
 
     public double joulesPerRequest() {

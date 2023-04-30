@@ -46,12 +46,12 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClass.set("simplerest.Main")
+    mainClass.set("simplerest.MainIO")
 }
 
 tasks.register<Jar>("fatJar") {
     manifest {
-        attributes["Main-Class"] = "simplerest.Main"
+        attributes["Main-Class"] = "simplerest.MainIO"
     }
     archiveBaseName.set("scala-rest.jar")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE

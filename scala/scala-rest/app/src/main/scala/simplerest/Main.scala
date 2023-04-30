@@ -17,7 +17,7 @@ import java.io.{File, FileInputStream}
 import java.util.Properties
 import scala.concurrent.duration.*
 
-object Main {
+object Main extends IOApp.Simple {
 
   import io.circe.generic.auto.*
   import io.circe.syntax.*
@@ -29,30 +29,34 @@ object Main {
     case GET -> Root / "hello" / name => Ok(s"Hello, $name.")
   }
 
-  def productsService(access: DataAccess): HttpRoutes[IO] = HttpRoutes.of[IO] {
+  def productsService(access: IO[DataAccess]): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root => {
       for {
-        products <- access.listProducts()
+        acc <- access
+        products <- acc.listProducts()
         r <- Ok(products.asJson)
       } yield r
     }
     case GET -> Root / id => for {
-      product <- access.productWithId(id.toInt)
+      acc <- access
+      product <- acc.productWithId(id.toInt)
       r <- Ok(product.asJson)
     } yield r
   }
 
-  def ordersServices(access: DataAccess): HttpRoutes[IO] = HttpRoutes.of[IO] {
+  def ordersServices(access: IO[DataAccess]): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / id => {
       for {
-        order <- access.orderWithId(id.toInt)
+        acc <- access
+        order <- acc.orderWithId(id.toInt)
         resp <- Ok(order.asJson)
       } yield resp
     }
     case req@POST -> Root / "new" =>
       for {
+        acc <- access
         entries <- req.as[List[Models.ShoppingCartEntry]]
-        order <- access.newOrder(entries)
+        order <- acc.newOrder(entries)
         resp <- Ok(s"${order.id}")
       } yield resp
   }
@@ -72,18 +76,18 @@ object Main {
     props
   }
 
-  def buildDataAccess(): DataAccess = {
+  def buildDataAccess(): IO[DataAccess] = {
     val env = loadEnv()
     if (env.containsKey("PG_HOST")) {
-      SkunkDataAccess(env.getProperty("PG_HOST"), env.getProperty("PG_USER"), env.getProperty("PG_PWD"), env.getProperty("PG_DATABASE"))
-    } else MockDataAccess
+      SkunkDataAccess(env.getProperty("PG_HOST"), env.getProperty("PG_USER"), env.getProperty("PG_PWD"), env.getProperty("PG_DATABASE")).use(da => IO.delay(da))
+    } else IO.pure(MockDataAccess)
   }
 
-  def main(args: Array[String]): Unit = {
+  def main_(args: Array[String]): Unit = {
     import cats.effect.unsafe.implicits.global
     import org.http4s.server.middleware.{ErrorAction, ErrorHandling}
 
-    val data: DataAccess = buildDataAccess()
+    val data: IO[DataAccess] = buildDataAccess()
     val httpApp = Router("/" -> helloServices,
       "/products" -> productsService(data),
       "/orders" -> ordersServices(data)).orNotFound
@@ -108,5 +112,37 @@ object Main {
       .build
     val shutdown = server.allocated.unsafeRunSync()._2
     while (System.in.available() == 0) Thread.sleep(100)
+  }
+
+
+
+  override def run: IO[Unit] = {
+    import cats.effect.unsafe.implicits.global
+    import org.http4s.server.middleware.{ErrorAction, ErrorHandling}
+
+    val data: IO[DataAccess] = buildDataAccess()
+    val httpApp = Router("/" -> helloServices,
+      "/products" -> productsService(data),
+      "/orders" -> ordersServices(data)).orNotFound
+    val withErrorLogging = ErrorHandling.Recover.total(
+      ErrorAction.log(
+        httpApp,
+        messageFailureLogAction = (t, msg) =>
+          IO.println(msg) >>
+            IO.println(t),
+        serviceErrorLogAction = (t, msg) =>
+          IO.println(msg) >>
+            IO.println(t)
+      )
+    )
+
+
+    val server: Resource[IO, Server] = EmberServerBuilder
+      .default[IO]
+      .withHost(ipv4"0.0.0.0")
+      .withPort(port"8080")
+      .withHttpApp(withErrorLogging)
+      .build
+    server.allocated.unsafeRunSync()._2
   }
 }

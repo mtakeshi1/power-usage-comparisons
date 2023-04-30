@@ -12,7 +12,6 @@ import java.util.concurrent.*;
 
 public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateInputParameters> {
 
-    private final String baseFolder = "results/" + getClassName() + "-" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
     protected final boolean writeResults;
 
     public BenchmarkDelayRate(String host, boolean writeAllResults) {
@@ -24,10 +23,6 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         this("localhost", false);
     }
 
-    @Override
-    public File getBaseFolder() {
-        return new File(baseFolder);
-    }
 
     public Map<String, Results> runAll(Duration testDuration, int numberOfClients, double requestPerSecond) throws Exception {
         measureBaseline();
@@ -49,6 +44,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         return null;
     }
 
+    protected void beforeRunStart(RequestMaker maker, ServerProcess process) throws IOException, InterruptedException {}
 
     public Results run(ServerProcess process, Duration testDuration, int numberOfClients, double requestPerSecond) throws IOException, InterruptedException {
         if (super.baselineEnergyUJoules == 0) {
@@ -74,6 +70,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
             }
             List<ScheduledFuture<?>> futures = new ArrayList<>();
             RequestMaker maker = newRequestMaker(process);
+            beforeRunStart(maker, process);
             CPUSnapshot snap = cpuSnapshot();
             long startJoules = maker.energyMeasureMicroJoules();
 
@@ -82,8 +79,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
             List<Duration> latencies = new CopyOnWriteArrayList<>();
             long deadline = System.nanoTime() + testDuration.toNanos();
             for (int i = 0; i < numberOfClients; i++) {
-                ScheduledFuture<?> fut = scheduleTask(pool, writer, maker, period, latencies, deadline);
-                futures.add(fut);
+                futures.add(scheduleTask(pool, writer, maker, period, latencies, deadline));
             }
             TimeUnit.SECONDS.sleep(testDuration.toSeconds());
             for (var fut : futures) {

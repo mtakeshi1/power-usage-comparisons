@@ -1,14 +1,17 @@
 package benchmark;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class BenchmarkBase {
 
-    private final String baseFolder = "results/" + DateTimeFormatter.ISO_DATE_TIME.format(ZonedDateTime.now());
+    private final String baseFolder = "results/" + getClassName() + "-" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
 
     protected final ServerProcess databaseProcess = standardDatabaseProcess();
 
@@ -20,9 +23,12 @@ public class BenchmarkBase {
             django(STANDARD_PORT),
             jude(STANDARD_PORT),
             kotlin(STANDARD_PORT),
+            judev2(STANDARD_PORT),
+            scala(STANDARD_PORT),
+            rust(STANDARD_PORT),
     };
 
-    private ServerProcess procStat = new ServerProcess("cpu", new String[] {"head", "-1", "/proc/stat"});
+    private ServerProcess procStat = new ServerProcess("cpu", new String[]{"head", "-1", "/proc/stat"});
 
     private final String host;
 
@@ -31,6 +37,27 @@ public class BenchmarkBase {
 
     public void disableBaseline() {
         baselineEnergyUJoules = -1;
+    }
+
+    public String getClassName() {
+        String className = getClass().getName();
+        if (className.contains(".")) {
+            className = className.substring(className.lastIndexOf('.') + 1);
+        }
+        return className;
+    }
+
+    protected ServerProcess findServerProcess(String name) {
+        for (var server : variations) {
+            if (server.getName().equals(name)) {
+                return server;
+            }
+        }
+        throw new RuntimeException("Build not found: " + name);
+    }
+
+    public File getBaseFolder() {
+        return new File(baseFolder);
     }
 
     public BenchmarkBase(String host) {
@@ -48,6 +75,10 @@ public class BenchmarkBase {
     }
 
     public static final int STANDARD_PORT = 8080;
+
+    public List<String> allProcessNames() {
+        return Arrays.stream(this.variations).map(ServerProcess::getName).toList();
+    }
 
     public ServerProcess getDatabaseProcess() {
         return databaseProcess;
@@ -69,6 +100,10 @@ public class BenchmarkBase {
         return ServerProcess.dockerProcess("pythonjude", "power/jude", ".env", externalPort, 8000);
     }
 
+    public static ServerProcess judev2(int externalPort) {
+        return ServerProcess.dockerProcess("pythonjudev2", "power/judev2", ".env", externalPort, 8000);
+    }
+
     public static ServerProcess django(int externalPort) {
         return ServerProcess.dockerProcess("pythondjango", "power/django", ".env", externalPort, 8000);
     }
@@ -87,6 +122,14 @@ public class BenchmarkBase {
 
     public static ServerProcess kotlin(int externalPort) {
         return ServerProcess.dockerProcess("kotlin", "power/kotlin", ".env", externalPort, 8080);
+    }
+
+    public static ServerProcess scala(int externalPort) {
+        return ServerProcess.dockerProcess("scala", "power/scala", ".env", externalPort, 8080);
+    }
+
+    public static ServerProcess rust(int externalPort) {
+        return ServerProcess.dockerProcess("rust", "power/rust", ".env", externalPort, 8080);
     }
 
 
@@ -121,7 +164,7 @@ public class BenchmarkBase {
             TimeUnit.NANOSECONDS.sleep(baselineMeasureDuration.toNanos());
             this.baselineEnergyUJoules = maker.energyMeasureMicroJoules() - initialJ;
             CPUUsage cpuUsage = cpuSnapshot().diffFrom(snapshot);
-            System.out.printf("baseline power draw (W): %.2f, cpu usage: %.2f%% %n", ((double) baselineEnergyUJoules/1_000_000) / baselineMeasureDuration.toSeconds(), 100.0*cpuUsage.totalCPUUsagePercentage());
+            System.out.printf("baseline power draw (W): %.2f, cpu usage: %.2f%% %n", ((double) baselineEnergyUJoules / 1_000_000) / baselineMeasureDuration.toSeconds(), 100.0 * cpuUsage.totalCPUUsagePercentage());
         } catch (Exception e) {
             throw new RuntimeException("could not stabilish baseline energy usage", e);
         }
@@ -145,7 +188,7 @@ public class BenchmarkBase {
             Results results = maker.loop(requests, Duration.ofMillis(pauseMillis))
                     .subtractBaseline(this.baselineEnergyUJoules, this.baselineMeasureDuration);
 //            System.out.println(results);
-            for(var d: results.latencies()) {
+            for (var d : results.latencies()) {
                 System.out.println(d.toMillis());
             }
         }
@@ -161,8 +204,7 @@ public class BenchmarkBase {
     }
 
     public static void main(String[] args) throws Exception {
-        new BenchmarkBase().sanityAll();
+        new BenchmarkBase(args.length == 0 ? "localhost" : args[0]).sanityAll();
     }
-
 
 }

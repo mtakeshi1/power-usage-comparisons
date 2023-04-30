@@ -3,7 +3,7 @@ import os.path
 import time
 import random
 
-import plotext
+# import plotext
 import requests
 import subprocess
 from dataclasses import dataclass
