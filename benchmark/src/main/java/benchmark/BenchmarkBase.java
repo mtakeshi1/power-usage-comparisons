@@ -97,7 +97,7 @@ public class BenchmarkBase {
     }
 
     public static ServerProcess jude(int externalPort) {
-        return ServerProcess.dockerProcess("pythonjude", "power/jude", ".env", externalPort, 8000);
+        return ServerProcess.dockerProcess("pythonjude", "power/judev3", ".env", externalPort, 8000);
     }
 
     public static ServerProcess judev2(int externalPort) {

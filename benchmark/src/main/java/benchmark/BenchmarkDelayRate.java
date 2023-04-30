@@ -155,7 +155,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         BenchmarkDelayRate rate = new BenchmarkDelayRate();
 //        rate.disableBaseline();
 //        rate.redirectOutputs();
-        String[] procNames = {"pythonjude", "javaquarkus"};
+        String[] procNames = {"pythonjudev2", "javaquarkus"};
         Duration testDuration = Duration.ofSeconds(120);
         List<RateInputParameters> list = new ArrayList<>();
         for (var proc : procNames) {

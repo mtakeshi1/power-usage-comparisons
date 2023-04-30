@@ -12,7 +12,7 @@ serve:
 	-e DB_CONNECTION_STRING=postgresql://myself:mysafepassword@THE-HOST:5432/mydatabase \
 	-p 8000:8000 \
 	--name takeshi-app \
-	powerjudev1
+	powerjudev2
 
 test-scenario:
 	rm -rf reports

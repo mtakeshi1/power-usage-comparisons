@@ -1,27 +1,39 @@
-# Python - Jude - V1
+# Python - Jude - V3
 
 Python implementation, using raw materials.
 
-My will behind this stack, is to compare raw WSGI application that are essentially single-threaded.
-
-The stack uses GUnicorn directly, as a translator between HTTP and WSGI.
+The stack uses GUnicorn directly with Uvicorn worker class (async),
+as a translator between HTTP and ASGI.
 It uses Psycopg as connector to the database.
 As far as possible, I have followed the recommendations of the
 respective documentations.
 
+## New in V3:
+
+We have used Asynchronous paradigms to compare with the synchronous
+case from previous V2 implementation. We managed to successfully translate
+most of the patterns, except `COPY` feature of PostgreSQL used in
+`/orders/new`. For this route, we have used a pipeline with many `INSERT`
+statements. We still have to figure out how to efficiently copy to the
+database without hooking too much in the loop.
+
 ## References
 
-https://peps.python.org/pep-0333/
+https://peps.python.org/pep-0333
 
-https://docs.gunicorn.org/en/latest/settings.html
+https://asgi.readthedocs.io/_/downloads/en/latest/pdf/
 
-https://www.psycopg.org/psycopg3/docs/api/connections.html
+https://docs.gunicorn.org
+
+https://www.uvicorn.org
+
+https://www.psycopg.org
 
 ## Build Docker images
 
 In root folder:
 ```
-docker build -t powerjudev1 .
+docker build -t powerjudev3 .
 ```
 
 Running the image assumes you have a valid available
@@ -33,7 +45,7 @@ docker run --rm \
 -e DB_CONNECTION_STRING=postgresql://myself:mysafepassword@host:5432/mydatabase \
 -p 8000:8000 \
 --name takeshi-app \
-powerjudev1
+powerjudev3
 ```
 
 You can use the shortcuts in the `Makefile`.
@@ -44,13 +56,6 @@ make test-schenario
 ```
 
 # Further work
-
-## Use of better data structures?
-
-Some computations (especially merging collected information) are written in plain Python.
-There could be a room for improvements here, by using constructions that would allow faster access
-and operations (like Pandas or NumPy). In particular, open issues in Psycopg are about getting results
-as NumPy objects. This can be more than interesting to work on.
 
 ## JIT or compilation
 
@@ -68,19 +73,6 @@ as JSON library. We use the library by using the standard Python's wrapper of it
 (see https://pypi.org/project/python-rapidjson/). We have not investigated the
 gain we could have in working directly in Cython for our use cases, without
 relying on a generic wrapper library.
-
-## Asynchronous handling
-
-According to GUnicorn documentation, the use of `sync` worker mode
-is highly discouraged when there is no reverse proxy in front of the application.
-In a real world scenario, we should either modify the worker class,
-or modify the architecture.
-
-It has to be noted that current state of `psycopg3` does not allow anymore interplay
-with `gevent` and `eventlet`.
-
-Another completely different approach, could be to rely on a ASGI framework
-like `Starlette`. Wehave not investigated this possibility.
 
 # A word on the paradigm
 
