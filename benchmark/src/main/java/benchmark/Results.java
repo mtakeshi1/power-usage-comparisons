@@ -40,12 +40,33 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
     }
 
     public long percentile(double perc) {
-        int index = (int) (perc * latencies.size());
-        return latencies.get(index).toMillis();
+        return latencies.get(indexOfPercentile(perc)).toMillis();
+    }
+
+    public int indexOfPercentile(double perc) {
+        return (int) (perc * latencies.size());
     }
 
     public long median() {
         return percentile(0.5);
+    }
+
+    /* Median of the worst N% worst percent */
+    public long medianWNp(int percentageOfWorst) {
+        int index = indexOfPercentile((100 - percentageOfWorst) / 100.)
+        assert index < latencies.size()
+        int lengthOfRemaining = latencies.size() - index
+        index += lengthOfRemaining / 2
+        assert index < latencies.size()
+        return latencies.get(index).toMillis()
+    }
+
+    public long medianW10p() {
+        return medianWNp(10)
+    }
+
+    public long medianW5p() {
+        return medianWNp(5)
     }
 
     public long p99() {
@@ -54,9 +75,34 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
 
     @Override
     public String toString() {
-        return "%s, samples=%d, duration(secs)=%d, avg latency=%.2g, median latency=%d, p99 latency=%d, max latency: %d, energy(joules)=%g, avg_power_draw(w): %.2g, joules per request: %.2g"
-                .formatted(name, latencies.size(), sampleDuration.toSeconds(), average(), median(), p99(),
-                        max(), energyJoules(), powerWatt(), joulesPerRequest());
+        return """
+                %s, \\
+                samples=%d, \\
+                duration(secs)=%d, \\
+                avg latency=%.2g, \\
+                median latency=%d, \\
+                med. lat. worst 10%=%d, \\
+                med. lat. worst 5%=%d, \\
+                p99 latency=%d, \\
+                max latency: %d, \\
+                energy(joules)=%g, \\
+                avg_power_draw(w): %.2g, \\
+                joules per request: %.2g
+                """
+                .formatted(
+                    name,
+                    latencies.size(),
+                    sampleDuration.toSeconds(),
+                    average(),
+                    median(),
+                    medianW10p(),
+                    medianW5p(),
+                    p99(),
+                    max(),
+                    energyJoules(),
+                    powerWatt(),
+                    joulesPerRequest()
+                );
     }
 
     public double joulesPerRequest() {
@@ -74,9 +120,20 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
         instance.setGroupingUsed(false);
 
         return new String[]{
-                String.valueOf(latencies.size()), String.valueOf(sampleDuration.toSeconds()), instance.format(average()), String.valueOf(median()),
-                String.valueOf(p99()), String.valueOf(max()), instance.format(energyJoules()), instance.format(energyJoules()), instance.format(joulesPerRequest()),
-                instance.format(usage.userPercentage()), instance.format(usage.systemPercentage())
+                String.valueOf(latencies.size()),
+                String.valueOf(sampleDuration.toSeconds()),
+                instance.format(average()),
+                String.valueOf(median()),
+                String.valueOf(medianW10p()),
+                String.valueOf(medianW5p()),
+                String.valueOf(median()),
+                String.valueOf(p99()),
+                String.valueOf(max()),
+                instance.format(energyJoules()),
+                instance.format(energyJoules()),
+                instance.format(joulesPerRequest()),
+                instance.format(usage.userPercentage()),
+                instance.format(usage.systemPercentage())
         };
 
     }
