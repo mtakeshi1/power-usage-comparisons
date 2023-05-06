@@ -14,6 +14,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
 
     protected final boolean writeResults;
 
+
     public BenchmarkDelayRate(String host, boolean writeAllResults) {
         super(host);
         this.writeResults = writeAllResults;
@@ -29,7 +30,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         Map<String, Results> results = new HashMap<>();
         for (var proc : super.variations) {
             Results r = run(proc, testDuration, numberOfClients, requestPerSecond);
-            System.out.println(r);
+            log(r.toString());
             results.put(proc.getName(), r);
         }
         return results;
@@ -44,20 +45,22 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         return null;
     }
 
-    protected void beforeRunStart(RequestMaker maker, ServerProcess process) throws IOException, InterruptedException {}
+    protected void beforeRunStart(RequestMaker maker, ServerProcess process) throws IOException, InterruptedException {
+    }
 
     public Results run(ServerProcess process, Duration testDuration, int numberOfClients, double requestPerSecond) throws IOException, InterruptedException {
         if (super.baselineEnergyUJoules == 0) {
             measureBaseline();
         }
         double expected = numberOfClients * testDuration.toSeconds() * requestPerSecond;
-        System.out.printf("Starting %s with %d clients and %.2f reqs/sec for %ds. Expected requests: %.2f %n", process.getName(), numberOfClients, requestPerSecond, testDuration.toSeconds(), expected);
+        log("Starting %s with %d clients and %.2f reqs/sec for %ds. Expected requests: %.2f".formatted(process.getName(), numberOfClients, requestPerSecond, testDuration.toSeconds(), expected));
         int maxThreads = 32;
         int minThreads = (int) Math.min(numberOfClients, numberOfClients * requestPerSecond);
         ScheduledExecutorService pool = Executors.newScheduledThreadPool(Math.min(maxThreads, minThreads));
         FileWriter writer;
         FileWriter toClose = null;
         try (var ignored = getDatabaseProcess().start(); var ignored2 = process.start()) {
+            //TODO on error, write the results of the docker logs before termination
             if (writeResults) {
                 File f = getBaseFolder();
                 if (!f.exists() && !f.mkdirs()) {
@@ -95,7 +98,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
             long totalEnergy = maker.energyMeasureMicroJoules() - startJoules;
             long totalTime = System.nanoTime() - t0;
             Results results = new Results(process.getName(), latencies, totalEnergy, Duration.ofNanos(totalTime), cpuSnapshot().diffFrom(snap)).subtractBaseline(baselineEnergyUJoules, baselineMeasureDuration);
-            System.out.printf("Finished %s with %d requests and results: %s%n", process.getName(), latencies.size(), results);
+            log("Finished %s with %d requests and results: %s%n".formatted(process.getName(), latencies.size(), results));
 
             return results;
         } catch (ExecutionException e) {

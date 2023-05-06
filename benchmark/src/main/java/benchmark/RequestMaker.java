@@ -112,7 +112,10 @@ public class RequestMaker {
                 .build();
         int[] select = select();
         String json = formatJSON(select, 5);
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = HttpClient.newBuilder()//.version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(2))
+                .build();
+
         long t0 = System.nanoTime();
         HttpResponse<String> send = client.send(build, HttpResponse.BodyHandlers.ofString());
         if (send.statusCode() != 200) {
@@ -124,13 +127,15 @@ public class RequestMaker {
                 throw new RuntimeException("%s Http response code: %d for product id: %d - %s".formatted(name, send.statusCode(), productId, send.body()));
             }
         }
+
         var response = client.send(HttpRequest.newBuilder()
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .uri(newOrderURI)
                 .header("Content-Type", "application/json")
+
                 .build(), HttpResponse.BodyHandlers.ofString());
         if (!validateResponse(response.statusCode())) {
-            throw new RuntimeException("%s Http response code: %d for POST - %s".formatted(name, response.statusCode(), send.body()));
+            throw new RuntimeException("%s Http response code: %d for POST - %s".formatted(name, response.statusCode(), json));
         }
         int orderId = Integer.parseInt(response.body());
         if (!validateResponse(client.send(HttpRequest.newBuilder().uri(orderURI(orderId)).build(), HttpResponse.BodyHandlers.discarding()).statusCode())) {
@@ -144,7 +149,7 @@ public class RequestMaker {
     }
 
     public static void main(String[] args) throws Exception {
-        RequestMaker maker = new RequestMaker("sample", "localhost", 8080, 8081);
-        System.out.println(maker.loop(1000, Duration.ofMillis(10)));
+        RequestMaker maker = new RequestMaker("sample", "localhost", 8000, 8081);
+        System.out.println(maker.loop(2, Duration.ofMillis(10)));
     }
 }

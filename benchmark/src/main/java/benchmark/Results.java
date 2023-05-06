@@ -53,20 +53,20 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
 
     /* Median of the worst N% worst percent */
     public long medianWNp(int percentageOfWorst) {
-        int index = indexOfPercentile((100 - percentageOfWorst) / 100.)
-        assert index < latencies.size()
-        int lengthOfRemaining = latencies.size() - index
-        index += lengthOfRemaining / 2
-        assert index < latencies.size()
-        return latencies.get(index).toMillis()
+        int index = indexOfPercentile((100 - percentageOfWorst) / 100.);
+        assert index < latencies.size();
+        int lengthOfRemaining = latencies.size() - index;
+        index += lengthOfRemaining / 2;
+        assert index < latencies.size();
+        return latencies.get(index).toMillis();
     }
 
     public long medianW10p() {
-        return medianWNp(10)
+        return medianWNp(10);
     }
 
     public long medianW5p() {
-        return medianWNp(5)
+        return medianWNp(5);
     }
 
     public long p99() {
@@ -76,32 +76,21 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
     @Override
     public String toString() {
         return """
-                %s, \\
-                samples=%d, \\
-                duration(secs)=%d, \\
-                avg latency=%.2g, \\
-                median latency=%d, \\
-                med. lat. worst 10%=%d, \\
-                med. lat. worst 5%=%d, \\
-                p99 latency=%d, \\
-                max latency: %d, \\
-                energy(joules)=%g, \\
-                avg_power_draw(w): %.2g, \\
-                joules per request: %.2g
+                %s, samples=%d, duration(secs)=%d, avg latency=%.2f, median latency=%d, med. lat. worst 10%%=%d, med. lat. worst 5%%=%d, p99 latency=%d, max latency: %d, energy(joules)=%f, avg_power_draw(w): %.2f, joules per request: %.2f
                 """
                 .formatted(
-                    name,
-                    latencies.size(),
-                    sampleDuration.toSeconds(),
-                    average(),
-                    median(),
-                    medianW10p(),
-                    medianW5p(),
-                    p99(),
-                    max(),
-                    energyJoules(),
-                    powerWatt(),
-                    joulesPerRequest()
+                        name,
+                        latencies.size(),
+                        sampleDuration.toSeconds(),
+                        average(),
+                        median(),
+                        medianW10p(),
+                        medianW5p(),
+                        p99(),
+                        max(),
+                        energyJoules(),
+                        powerWatt(),
+                        joulesPerRequest()
                 );
     }
 
@@ -110,7 +99,7 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
     }
 
     public static String[] header() {
-        return "samples,duration,avg_lat,median_lat,p99_lat,max_lat,energy(J),avg_power(W),energy_per_req,cpu(user%),cpu(system%)".split(",");
+        return "samples,duration,avg_lat,median_lat,medianw10p,medianw5p,p99_lat,max_lat,energy(J),avg_power(W),energy_per_req,cpu(user%),cpu(system%)".split(",");
     }
 
     public String[] toCSV() {
@@ -126,7 +115,6 @@ public record Results(String name, List<Duration> latencies, long energyUsageMic
                 String.valueOf(median()),
                 String.valueOf(medianW10p()),
                 String.valueOf(medianW5p()),
-                String.valueOf(median()),
                 String.valueOf(p99()),
                 String.valueOf(max()),
                 instance.format(energyJoules()),

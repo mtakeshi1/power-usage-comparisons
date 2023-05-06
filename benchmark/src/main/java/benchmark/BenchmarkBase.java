@@ -4,12 +4,14 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class BenchmarkBase {
+    public static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final String baseFolder = "results/" + getClassName() + "-" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
 
@@ -21,11 +23,14 @@ public class BenchmarkBase {
             golang(STANDARD_PORT),
             node(STANDARD_PORT),
             django(STANDARD_PORT),
-            jude(STANDARD_PORT),
+
             kotlin(STANDARD_PORT),
-            judev2(STANDARD_PORT),
+
             scala(STANDARD_PORT),
             rust(STANDARD_PORT),
+            jude(STANDARD_PORT),
+            judev2(STANDARD_PORT),
+            judev3(STANDARD_PORT),
     };
 
     private ServerProcess procStat = new ServerProcess("cpu", new String[]{"head", "-1", "/proc/stat"});
@@ -33,10 +38,15 @@ public class BenchmarkBase {
     private final String host;
 
     protected long baselineEnergyUJoules;
+
     protected final Duration baselineMeasureDuration = Duration.ofMinutes(2);
 
     public void disableBaseline() {
         baselineEnergyUJoules = -1;
+    }
+
+    public void log(String msg) {
+        System.out.printf("%s %s%n%n", TIME_FORMATTER.format(LocalTime.now()), msg);
     }
 
     public String getClassName() {
@@ -97,11 +107,15 @@ public class BenchmarkBase {
     }
 
     public static ServerProcess jude(int externalPort) {
-        return ServerProcess.dockerProcess("pythonjude", "power/judev3", ".env", externalPort, 8000);
+        return ServerProcess.dockerProcess("pythonjude", "power/jude", ".env", externalPort, 8000);
     }
 
     public static ServerProcess judev2(int externalPort) {
         return ServerProcess.dockerProcess("pythonjudev2", "power/judev2", ".env", externalPort, 8000);
+    }
+
+    public static ServerProcess judev3(int externalPort) {
+        return ServerProcess.dockerProcess("pythonjudev3", "power/judev3", ".env", externalPort, 8000);
     }
 
     public static ServerProcess django(int externalPort) {
@@ -140,12 +154,12 @@ public class BenchmarkBase {
     }
 
     public void sanity(ServerProcess proc) throws Exception {
-        System.out.println("starting " + proc.getName());
+        log("starting " + proc.getName());
         try (var ignored = databaseProcess.start(); var ignored2 = proc.start()) {
-            System.out.println(proc.getName() + " started");
+            log(proc.getName() + " started");
             RequestMaker maker = newRequestMaker(proc);
             maker.makeRequest();
-            System.out.println(proc.getName() + " all good");
+            log(proc.getName() + " all good");
         }
     }
 
@@ -156,7 +170,7 @@ public class BenchmarkBase {
     }
 
     public void measureBaseline() {
-        System.out.println("Measuring baseline power draw");
+        log("Measuring baseline power draw");
         RequestMaker maker = newRequestMaker("baseline");
         try {
             CPUSnapshot snapshot = cpuSnapshot();
@@ -164,7 +178,7 @@ public class BenchmarkBase {
             TimeUnit.NANOSECONDS.sleep(baselineMeasureDuration.toNanos());
             this.baselineEnergyUJoules = maker.energyMeasureMicroJoules() - initialJ;
             CPUUsage cpuUsage = cpuSnapshot().diffFrom(snapshot);
-            System.out.printf("baseline power draw (W): %.2f, cpu usage: %.2f%% %n", ((double) baselineEnergyUJoules / 1_000_000) / baselineMeasureDuration.toSeconds(), 100.0 * cpuUsage.totalCPUUsagePercentage());
+            log("baseline power draw (W): %.2f, cpu usage: %.2f%% %n".formatted(((double) baselineEnergyUJoules / 1_000_000) / baselineMeasureDuration.toSeconds(), 100.0 * cpuUsage.totalCPUUsagePercentage()));
         } catch (Exception e) {
             throw new RuntimeException("could not stabilish baseline energy usage", e);
         }
@@ -181,13 +195,10 @@ public class BenchmarkBase {
     public void thousandRequests(ServerProcess proc) throws Exception {
         int requests = 1000;
         int pauseMillis = 1;
-//        System.out.println("starting " + proc.getName() + " with " + requests + " requests with pause: " + pauseMillis);
         try (var ignored = databaseProcess.start(); var ignored2 = proc.start()) {
-//            System.out.println(proc.getName() + " started");
             RequestMaker maker = newRequestMaker(proc);
             Results results = maker.loop(requests, Duration.ofMillis(pauseMillis))
                     .subtractBaseline(this.baselineEnergyUJoules, this.baselineMeasureDuration);
-//            System.out.println(results);
             for (var d : results.latencies()) {
                 System.out.println(d.toMillis());
             }
