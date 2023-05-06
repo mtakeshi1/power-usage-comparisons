@@ -1,0 +1,5 @@
+python-rapidjson
+psycopg[c]
+psycopg-pool
+uvloop
+hypercorn
