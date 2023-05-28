@@ -30,7 +30,8 @@ public class BenchmarkBase {
             rust(STANDARD_PORT),
             jude(STANDARD_PORT),
             judev2(STANDARD_PORT),
-            judev3(STANDARD_PORT),
+//            judev3(STANDARD_PORT),
+            judev4(STANDARD_PORT),
     };
 
     private ServerProcess procStat = new ServerProcess("cpu", new String[]{"head", "-1", "/proc/stat"});
@@ -118,6 +119,12 @@ public class BenchmarkBase {
         return ServerProcess.dockerProcess("pythonjudev3", "power/judev3", ".env", externalPort, 8000);
     }
 
+
+    public static ServerProcess judev4(int externalPort) {
+        return ServerProcess.dockerProcess("pythonjudev4", "power/judev4", ".env", externalPort, 8000);
+    }
+
+
     public static ServerProcess django(int externalPort) {
         return ServerProcess.dockerProcess("pythondjango", "power/django", ".env", externalPort, 8000);
     }
@@ -146,6 +153,14 @@ public class BenchmarkBase {
         return ServerProcess.dockerProcess("rust", "power/rust", ".env", externalPort, 8080);
     }
 
+    protected ServerProcess selectProcess(String imageName) {
+        for (ServerProcess serverProcess : variations) {
+            if (serverProcess.getName().equals(imageName)) {
+                return serverProcess;
+            }
+        }
+        return null;
+    }
 
     public void sanityAll() throws Exception {
         for (ServerProcess serverProcess : variations) {

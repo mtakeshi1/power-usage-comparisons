@@ -1,6 +1,5 @@
 package benchmark;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -51,7 +50,7 @@ public class ServerProcess {
         return new String(process.getInputStream().readAllBytes());
     }
 
-    public synchronized Closeable start() throws IOException, InterruptedException {
+    public synchronized RunningProcess start() throws IOException, InterruptedException {
         if (process != null && process.isAlive()) {
             stop();
         }
@@ -69,14 +68,22 @@ public class ServerProcess {
             }
         });
         Thread.sleep(5_000);
-        return () -> {
+        return new RunningProcess(process, () -> {
             try {
-                stop();
-            } catch (InterruptedException e) {
+                ServerProcess.this.stop();
+            } catch (Exception e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
-        };
+        });
+//        return () -> {
+//            try {
+//                stop();
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//                throw new RuntimeException(e);
+//            }
+//        };
     }
 
     public String getName() {

@@ -59,7 +59,7 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
         ScheduledExecutorService pool = Executors.newScheduledThreadPool(Math.min(maxThreads, minThreads));
         FileWriter writer;
         FileWriter toClose = null;
-        try (var ignored = getDatabaseProcess().start(); var ignored2 = process.start()) {
+        try (var ignored = getDatabaseProcess().start(); var server = process.start()) {
             //TODO on error, write the results of the docker logs before termination
             if (writeResults) {
                 File f = getBaseFolder();
@@ -93,6 +93,9 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
                 try {
                     fut.get();
                 } catch (CancellationException ignored1) {
+                } catch (ExecutionException e) {
+                    System.err.println(server.stdout());
+                    throw new RuntimeException(e.getCause());
                 }
             }
             long totalEnergy = maker.energyMeasureMicroJoules() - startJoules;
@@ -101,8 +104,6 @@ public class BenchmarkDelayRate extends BenchmarkBase implements Benchmark<RateI
             log("Finished %s with %d requests and results: %s%n".formatted(process.getName(), latencies.size(), results));
 
             return results;
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e.getCause());
         } finally {
             pool.shutdownNow();
             if (toClose != null) toClose.close();

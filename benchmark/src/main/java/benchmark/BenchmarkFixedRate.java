@@ -44,7 +44,7 @@ public class BenchmarkFixedRate extends BenchmarkDelayRate {
         rate.disableBaseline();
         rate.redirectOutputs();
         List<String> procNames = new ArrayList<>(rate.allProcessNames()); //
-        Duration testDuration = Duration.ofSeconds(60);
+        Duration testDuration = Duration.ofSeconds(180);
         List<RateInputParameters> list = new ArrayList<>();
         Duration totalDuration = Duration.ZERO;
         for (var proc : procNames) {

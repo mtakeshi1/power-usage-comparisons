@@ -112,7 +112,7 @@ public class RequestMaker {
                 .build();
         int[] select = select();
         String json = formatJSON(select, 5);
-        HttpClient client = HttpClient.newBuilder()//.version(HttpClient.Version.HTTP_1_1)
+        HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
                 .connectTimeout(Duration.ofSeconds(2))
                 .build();
 
@@ -149,7 +149,7 @@ public class RequestMaker {
     }
 
     public static void main(String[] args) throws Exception {
-        RequestMaker maker = new RequestMaker("sample", "localhost", 8000, 8081);
-        System.out.println(maker.loop(2, Duration.ofMillis(10)));
+        RequestMaker maker = new RequestMaker("sample", "127.0.0.1", 8080, 8081);
+        System.out.println(maker.loop(1, Duration.ofMillis(10)));
     }
 }
