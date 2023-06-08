@@ -32,7 +32,7 @@ For each application version, we do the following:
 
 # Results (1 client thread)
 
-The full CSV with the results can be seen [here] (test2.csv)
+The full CSV with the results can be seen [here](test2.csv)
 
 | image        | samples | duration | avg_lat | median_lat | p99_lat | max_lat | energy(J) | avg_power(W) | energy_per_req |
 |--------------|---------|----------|---------|------------|---------|---------|-----------|--------------|----------------|
