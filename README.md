@@ -71,25 +71,24 @@ using [Scaphandre](https://github.com/hubblo-org/scaphandre) and for each implem
 steps:
 
 - start scaphandre on the test server
+- disable CPU scale-down on the test server (modern CPU's will slow down when there's no load to not waste so much energy)
 - take a baseline power measure for roughly 1 hour (the server will be mostly idle but I imagine it will still draw some
   power). This will be deducted from the power usage when running the application
 - start a fresh database (not in the same server as the application)
-- run benchmark for an hour
+- run benchmark (the clients will be run from the same machine as the database)
 - stop everything and collect measures (subtracting the power usage from the baseline measure before)
 
-Each 'request' will actually be four http requests:
+Each 'story' will be made of four http requests:
 
 - GET to /products
 - GET to 5 random products
 - POST to /order/new with the 5 products
 - GET to /order/{id}
 
-I will run three separate workloads:
+I've done two tests:
 
-- cold start: a single thread making 1 request per second for 10 minutes
-- hot application, low load: after warmup, without restarting the application, 10 threads making 1 request per second
-- hot application, medium load: after warmup, without restarting the application, 100 threads making 2 request per
-  second
+- [Fixed Request Rate for a set duration] (Test1.md)
+- [Non stop requests for a set duration] (Test2.md)
 
 There are a couple more tests that I want to make, but not sure if I will get to:
 
@@ -130,6 +129,37 @@ quarkus.datasource.jdbc.url = jdbc:postgresql://localhost:5432/mydatabase
 
 and run with ```java -jar ./build/quarkus-app/quarkus-run.jar``` it should start listening on port 8080 (but the swagger
 ui will not be available)
+
+## Scala
+
+I wanted to use the most representative stack for each programming language. But since I couldn't find out what is scala's 
+so I opted for using scala's most distinctive stack: cats + circe + http4s + doobie. Unfortunatelly, due to my own inexperience 
+with this stack, this implementation is not good (and I'm accepting contributions of course).
+
+## Kotlin
+While Kotlin can be used with most modern java frameworks, here again I opted for a 'unique' stack using Ktor. I didn't know
+at all this stack, but it was not difficult to learn (provided you know a bit of the language).
+
+## Python - Django
+
+Thanks to [Bruno Ortiz](https://github.com/bruno-ortiz) for this implementation. Its a very straightforward python + django, not much to say.
+
+## Python - Jude
+Hand built python version that does (almost) everything without any framework, courtesy of [Dr. Jude Dekeyser](https://github.com/Judekeyser).
+There are 4 variations, including non blocking ones.
+
+## Ruby on rails
+Also not much to say, ruby on rails is a very powerful and easy to use framework.
+
+## NodeJS
+NodeJS straightforward implementation by [Kuroki](https://github.com/rkuroki) 
+
+## GOLang
+Golang straightforward implementation by [Kuroki](https://github.com/rkuroki)
+
+## Rust
+Rust straightforward implementation by [Zezinho](https://github.com/josealmada)
+
 
 # Conclusion
 
