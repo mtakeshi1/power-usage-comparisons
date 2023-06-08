@@ -46,7 +46,7 @@ I will publish them on github pages but very friefly:
 
 An implementation of this API should follow very basic rules:
 
-- no caching
+- no caching of query results across requests
 - stateless
 - it doesn't need to do anything special, but it should compute the total price properly (which means making a number of
   queries when a new order is posted)
