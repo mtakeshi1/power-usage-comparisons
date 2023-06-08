@@ -89,7 +89,7 @@ per VM anyway.
 
 I've seen posts claiming that we should use X or Y language due to power usage, but I think this test paints a more realistic picture of a typical web
 application nowadays. To put into perpective, the cloud carbon footprint
-project [models 1MB of traffic as using about 3J] (https://www.cloudcarbonfootprint.org/docs/methodology/#networking)
+project [models 1MB of traffic as using about 3J](https://www.cloudcarbonfootprint.org/docs/methodology/#networking)
 It's unreasonable to imagine that a user making these requests in the real world would transfer more than 1MB if we account for images, additional
 javascript, css, http overhead, SSL overhead, etc. (Note to self: compute the total data transfered for this benchmark)
 Also keep in mind that we're not accounting for the energy used by the database, which is likely to matter a lot.
