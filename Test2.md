@@ -91,7 +91,7 @@ I've seen posts claiming that we should use X or Y language due to power usage, 
 application nowadays. To put into perpective, the cloud carbon footprint
 project [models 1MB of traffic as using about 3J](https://www.cloudcarbonfootprint.org/docs/methodology/#networking)
 It's unreasonable to imagine that a user making these requests in the real world would transfer more than 1MB if we account for images, additional
-javascript, css, http overhead, SSL overhead, etc. (Note to self: compute the total data transfered for this benchmark)
+javascript, css, http overhead, SSL overhead, etc (the current implementation transfer about 6k of pure text).
 Also keep in mind that we're not accounting for the energy used by the database, which is likely to matter a lot.
 
 
